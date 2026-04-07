@@ -84,7 +84,7 @@ LRESULT __stdcall Wndproc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
         *bIsFocus = true;
     }
 
-    if (*gameState != IN_GAME)
+    if ((*gameState != IN_GAME) && (*gameState != IN_FREEPLAY))
         maxEntityTickMs = nullptr;
 
     if (Msg == WM_KEYUP && maxEntityTickMs != nullptr)

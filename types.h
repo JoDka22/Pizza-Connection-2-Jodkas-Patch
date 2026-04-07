@@ -86,6 +86,7 @@ struct MainGame
 
 
 #define IN_GAME 29
+#define IN_FREEPLAY 23
 #define GAME_SPEED 1000
 #define MAX_ENTITY_TICK_MS 200
 #define CURRENT_ENTITY_TICK_MS 200
