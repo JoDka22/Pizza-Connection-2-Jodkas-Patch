@@ -9,7 +9,7 @@
 - Improve loading times.
 
 # How to install
-1. Download latest release build from [here](https://github.com/mallgrab/pc2fix/releases).
+1. Download latest release build from [here](https://github.com/mallgrab/pc2fix/releases/download/Ver1/pc2fix_ver1.zip).
 2. Extract the zip file.
 3. Drag and drop all files into the game's folder, overwrite if asked.
 4. Enjoy making pizzas. 😎
