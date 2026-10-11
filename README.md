@@ -13,6 +13,9 @@ for the expanded interior, empty-cell culling fix and remaining artwork limits.
 See [centered, enlarged restaurant presentation](docs/CENTERED_RESTAURANT_DE.md)
 for proportional interior enlargement with unchanged sidebar and inverse furniture picking.
 
+See [offscreen composition and restaurant flicker regression](docs/RESTAURANT_FLICKER_DE.md)
+for completed-frame output, buffer lifetime tests and remaining timing limits.
+
 The optional [native city widescreen prototype](docs/WIDESCREEN_DE.md) creates a
 1920x1080 DirectDraw primary/backbuffer and a 1716x1031 city viewport. Camera bases,
 root bounds, world buffers and city UI geometry are integrated. Original UI pixels

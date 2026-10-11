@@ -1,4 +1,5 @@
 #define WIN32_LEAN_AND_MEAN
+#include "../presentation_buffer.h"
 #include "../presentation_pixels.h"
 #include <cstdio>
 #include <vector>
@@ -130,6 +131,47 @@ int main()
               GetPixel(dc, 1800, 1050) == RGB(0, 255, 0),
           "world redraw preserves original sidebar overhang and status pixels");
     check(GetPixel(dc, 0, 100) == RGB(0, 0, 0), "old restaurant origin erased from presentation");
+    pc2fix::PresentationBuffer buffer;
+    bool enlarged = false;
+    SetPixel(dc, 500, 300, RGB(255, 255, 255));
+    check(buffer.Compose(source.data(), 3840, layout, true, 0xf800, 0x7e0, 0x1f, {0, 0, 1920, 1080},
+                         &restaurant, enlarged) &&
+              enlarged && GetPixel(dc, 500, 300) == RGB(255, 255, 255),
+          "offscreen composition leaves visible target untouched until publication");
+    check(buffer.Present(dc) && GetPixel(dc, 500, 300) == RGB(255, 0, 0) &&
+              GetPixel(dc, 1900, 300) == RGB(0, 255, 0) && GetPixel(dc, 0, 100) == RGB(0, 0, 0),
+          "single publication transfers complete restaurant UI and black margins");
+    auto handles = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
+    bool repeated = true;
+    for (int i = 0; i < 20; ++i)
+        repeated = repeated &&
+                   buffer.Compose(source.data(), 3840, layout, true, 0xf800, 0x7e0, 0x1f, {0, 0, 1920, 1080},
+                                  &restaurant, enlarged) &&
+                   buffer.Present(dc);
+    check(repeated && GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS) == handles,
+          "repeated frames reuse GDI resources without accumulating handles");
+    SetPixel(dc, 500, 300, RGB(255, 255, 255));
+    check(!buffer.Compose(source.data(), 1598, layout, true, 0xf800, 0x7e0, 0x1f, {0, 0, 1920, 1080},
+                          &restaurant, enlarged) &&
+              !buffer.Present(dc) && GetPixel(dc, 500, 300) == RGB(255, 255, 255),
+          "invalid source does not publish partial or stale buffered frame");
+    auto broken = restaurant;
+    broken.source.left = -1;
+    check(buffer.Compose(source.data(), 3840, layout, true, 0xf800, 0x7e0, 0x1f, {0, 0, 1920, 1080}, &broken,
+                         enlarged) &&
+              !enlarged && buffer.Present(dc) && GetPixel(dc, 100, 100) == RGB(255, 0, 0),
+          "failed enlargement composes complete original frame before publication");
+    check(buffer.Compose(source.data(), 3840, layout, true, 0xf800, 0x7e0, 0x1f, {0, 0, 1000, 1000},
+                         &restaurant, enlarged) &&
+              buffer.Present(dc) && GetPixel(dc, 500, 900) == RGB(0, 0, 0),
+          "resizing replaces composition buffer and clears new letterbox bars");
+    check(!buffer.Compose(source.data(), 3840, layout, true, 0xf800, 0x7e0, 0x1f, {0, 0, 5000, 3000}, nullptr,
+                          enlarged) &&
+              !buffer.Present(dc),
+          "unbounded output allocation rejected without publishing");
+    buffer.Reset();
+    check(GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS) == handles - 2 && !buffer.Present(dc),
+          "explicit buffer teardown releases bitmap and memory DC");
     SelectObject(dc, previous);
     DeleteObject(dib);
     DeleteDC(dc);

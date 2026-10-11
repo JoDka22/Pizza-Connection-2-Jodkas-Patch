@@ -2,7 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include "presentation.h"
 #include "main.h"
-#include "presentation_pixels.h"
+#include "presentation_buffer.h"
 #include <MinHook.h>
 #include <cstdio>
 namespace
@@ -26,6 +26,8 @@ bool haveFocusPlacement = false;
 pc2fix::RestaurantView restaurantView{};
 RECT restaurantArtwork{};
 bool restaurantPresented = false;
+pc2fix::PresentationBuffer outputBuffer;
+bool painting = false;
 RECT View(HWND window)
 {
     RECT client{};
@@ -33,83 +35,74 @@ RECT View(HWND window)
     return pc2fix::FitView(client.right, client.bottom, IsNativeWorldFrame() ? layout.width : 800,
                            IsNativeWorldFrame() ? layout.height : 600);
 }
-void Paint()
+void Paint(HDC paintDC = nullptr)
 {
-    if (!front || !IsWindow(gameWindow) || IsIconic(gameWindow))
+    if (painting || !front || !IsWindow(gameWindow) || IsIconic(gameWindow))
         return;
+    painting = true;
     DDSURFACEDESC data{};
     data.dwSize = sizeof(data);
     auto result = front->Lock(nullptr, &data, DDLOCK_WAIT | DDLOCK_READONLY, nullptr);
-    if (FAILED(result))
+    if (SUCCEEDED(result))
     {
-        if (!reported)
+        if (data.lPitch >= layout.width * 2 && data.lPitch % 4 == 0 &&
+            data.ddpfPixelFormat.dwRGBBitCount == 16)
         {
-            Log("present: front lock failed; frame skipped");
-            reported = true;
-        }
-        return;
-    }
-    if (data.lPitch >= layout.width * 2 && data.lPitch % 4 == 0 && data.ddpfPixelFormat.dwRGBBitCount == 16)
-    {
-        auto dc = GetDC(gameWindow);
-        if (dc)
-        {
-            RECT client{};
+            RECT client{}, artwork{};
             GetClientRect(gameWindow, &client);
-            restaurantPresented = false;
-            const bool baseDrawn = pc2fix::DrawRgb16Frame(
-                dc, data.lpSurface, data.lPitch, IsNativeWorldFrame() ? layout.width : 800,
-                IsNativeWorldFrame() ? layout.height : 600, data.ddpfPixelFormat.dwRBitMask,
-                data.ddpfPixelFormat.dwGBitMask, data.ddpfPixelFormat.dwBBitMask, client);
-            if (!baseDrawn && !reported)
+            pc2fix::RestaurantView interior{};
+            bool wantInterior =
+                RestaurantArtwork(artwork) && pc2fix::MakeRestaurantView(layout, artwork, interior);
+            bool enlarged = false;
+            if (outputBuffer.Compose(data.lpSurface, data.lPitch, layout, IsNativeWorldFrame(),
+                                     data.ddpfPixelFormat.dwRBitMask, data.ddpfPixelFormat.dwGBitMask,
+                                     data.ddpfPixelFormat.dwBBitMask, client,
+                                     wantInterior ? &interior : nullptr, enlarged))
             {
-                Log("present: GDI output failed");
+                auto dc = paintDC ? paintDC : GetDC(gameWindow);
+                bool presented = dc && outputBuffer.Present(dc);
+                if (dc && !paintDC)
+                    ReleaseDC(gameWindow, dc);
+                if (presented)
+                {
+                    restaurantPresented = enlarged;
+                    if (enlarged)
+                    {
+                        restaurantView = interior;
+                        restaurantArtwork = artwork;
+                    }
+                    static bool logged = false;
+                    if (!logged)
+                    {
+                        Log("present: composed frame published with one BitBlt");
+                        logged = true;
+                    }
+                }
+                else if (!reported)
+                {
+                    Log("present: completed frame transfer failed; input mapping retained");
+                    reported = true;
+                }
+            }
+            else if (!reported)
+            {
+                Log("present: offscreen composition failed; no partial frame published");
                 reported = true;
             }
-            RECT artwork{};
-            pc2fix::RestaurantView interior{};
-            if (baseDrawn && RestaurantArtwork(artwork) &&
-                pc2fix::MakeRestaurantView(layout, artwork, interior))
-            {
-                if (!pc2fix::DrawRestaurantView(
-                        dc, data.lpSurface, data.lPitch, layout, data.ddpfPixelFormat.dwRBitMask,
-                        data.ddpfPixelFormat.dwGBitMask, data.ddpfPixelFormat.dwBBitMask, client, interior))
-                {
-                    pc2fix::DrawRgb16Frame(dc, data.lpSurface, data.lPitch, layout.width, layout.height,
-                                           data.ddpfPixelFormat.dwRBitMask, data.ddpfPixelFormat.dwGBitMask,
-                                           data.ddpfPixelFormat.dwBBitMask, client);
-                    if (!reported)
-                    {
-                        Log("present: restaurant enlargement failed; native output retained");
-                        reported = true;
-                    }
-                    ReleaseDC(gameWindow, dc);
-                    front->Unlock(data.lpSurface);
-                    return;
-                }
-                restaurantView = interior;
-                restaurantArtwork = artwork;
-                restaurantPresented = true;
-                static unsigned lines = 0;
-                if (lines++ < 4)
-                {
-                    char line[192]{};
-                    sprintf_s(line, "present: restaurant artwork %ld,%ld..%ld,%ld centered %ld,%ld..%ld,%ld",
-                              artwork.left, artwork.top, artwork.right, artwork.bottom,
-                              interior.destination.left, interior.destination.top, interior.destination.right,
-                              interior.destination.bottom);
-                    Log(line);
-                }
-            }
-            ReleaseDC(gameWindow, dc);
         }
+        else if (!reported)
+        {
+            Log("present: unexpected RGB16 format/pitch; frame skipped");
+            reported = true;
+        }
+        front->Unlock(data.lpSurface);
     }
     else if (!reported)
     {
-        Log("present: unexpected RGB16 format/pitch; frame skipped");
+        Log("present: front lock failed; frame skipped");
         reported = true;
     }
-    front->Unlock(data.lpSurface);
+    painting = false;
 }
 HRESULT WINAPI Attached(IDirectDrawSurface *surface, DDSCAPS *caps, IDirectDrawSurface **output)
 {
@@ -132,6 +125,10 @@ void __fastcall Flip(void *object, void *)
     }
     // The engine continues copying dirty regions front->back after this call.
     // Neither buffer is resized or used as a desktop-format primary surface.
+    // Window/GDI calls may dispatch messages while Paint holds the front lock.
+    // Defer a nested flip rather than blitting into that locked surface.
+    if (painting)
+        return;
     auto result = front->Blt(nullptr, back, nullptr, DDBLT_WAIT, nullptr);
     if (result == DDERR_SURFACELOST && SUCCEEDED(front->Restore()) && SUCCEEDED(back->Restore()))
         result = front->Blt(nullptr, back, nullptr, DDBLT_WAIT, nullptr);
@@ -161,6 +158,19 @@ BOOL WINAPI Clip(const RECT *area)
 }
 LRESULT __fastcall Message(void *object, void *, HWND window, UINT msg, WPARAM wp, LPARAM lp)
 {
+    // The original WM_PAINT path copies the uncomposed legacy image (0x5246e0).
+    // Validate the update region ourselves and publish only the finished frame.
+    if (enabled && front && window == gameWindow && msg == WM_PAINT)
+    {
+        PAINTSTRUCT paint{};
+        auto dc = BeginPaint(window, &paint);
+        if (dc)
+            Paint(dc);
+        EndPaint(window, &paint);
+        return 0;
+    }
+    if (enabled && front && window == gameWindow && msg == WM_ERASEBKGND)
+        return 1; // Composition covers the client, including all letterbox bars.
     if (enabled && framed && window == gameWindow && msg == WM_ACTIVATEAPP && !wp)
         haveFocusPlacement = GetWindowPlacement(window, &focusPlacement) != FALSE;
     if (enabled && window == gameWindow && msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST)
@@ -198,8 +208,6 @@ LRESULT __fastcall Message(void *object, void *, HWND window, UINT msg, WPARAM w
         SetWindowPlacement(window, &restore);
         haveFocusPlacement = false;
     }
-    if (enabled && window == gameWindow && msg == WM_PAINT)
-        Paint();
     return result;
 }
 } // namespace
@@ -303,6 +311,7 @@ HRESULT CreatePresentationSurface(IDirectDraw *draw, IDirectDrawSurface **output
 void ReleasePresentation()
 {
     restaurantPresented = false;
+    outputBuffer.Reset();
     if (back)
         back->Release();
     back = nullptr;
