@@ -28,6 +28,8 @@ AxisFn cameraXOriginal = nullptr;
 AxisFn cameraYOriginal = nullptr;
 using SceneFn = void(__thiscall *)(void *, void *);
 SceneFn sceneOriginal = nullptr;
+using PlacementFn = int(__thiscall *)(void *, int, int, int, int, int, int);
+PlacementFn placementOriginal = nullptr;
 thread_local void *background = nullptr;
 thread_local bool worldBackground = false;
 thread_local bool panelFooter = false;
@@ -58,6 +60,20 @@ bool NativeCity()
 {
     auto scene = *reinterpret_cast<void **>(0x57c670);
     return Writable(scene, 0x294) && pc2fix::NativeCityScene(Field<int>(scene, 0x290));
+}
+int __fastcall Placement(void *object, void *, int x, int y, int commit, int mode, int cellX, int cellY)
+{
+    // The original mouse handler can run after the dispatcher clears +0x2fc.
+    // Match the original rejected-placement result, without touching inventory.
+    if (active && Writable(object, 0x35c) && !Field<void *>(object, 0x2fc))
+    {
+        Field<int>(object, 0x358) = 0;
+        static unsigned reported = 0;
+        if (reported++ < 8)
+            Log("wide: rejected furniture hit-test without an active world");
+        return 0;
+    }
+    return placementOriginal(object, x, y, commit, mode, cellX, cellY);
 }
 void __fastcall Scene(void *object, void *, void *window)
 {
@@ -417,6 +433,8 @@ bool InstallWidescreen(const pc2fix::DisplayLayout &layout)
                       reinterpret_cast<void **>(&cameraYOriginal)) != MH_OK ||
         MH_CreateHook(reinterpret_cast<void *>(0x4859c0), &Scene,
                       reinterpret_cast<void **>(&sceneOriginal)) != MH_OK ||
+        MH_CreateHook(reinterpret_cast<void *>(0x489180), &Placement,
+                      reinterpret_cast<void **>(&placementOriginal)) != MH_OK ||
         !InstallPresentationHooks() || MH_EnableHook(MH_ALL_HOOKS) != MH_OK)
     {
         MH_DisableHook(MH_ALL_HOOKS);
