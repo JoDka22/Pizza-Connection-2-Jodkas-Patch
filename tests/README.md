@@ -5,7 +5,7 @@ The native tests include main.cpp to exercise the actual implementation. They us
 After the Release build, in an x86 VS2022 Developer Command Prompt, from the repository root:
 
 ```bat
-cl /nologo /std:c++17 /W4 /WX /MT /EHsc /I vendors\minhook-master\include tests\compatibility_tests.cpp pc2fix\Release\buffer.obj pc2fix\Release\hde32.obj pc2fix\Release\hook.obj pc2fix\Release\trampoline.obj /Foout\compatibility_tests.obj /Feout\compatibility_tests.exe /link user32.lib /LTCG
+cl /nologo /std:c++17 /W4 /WX /MT /EHsc /I vendors\minhook-master\include tests\compatibility_tests.cpp /Foout\compatibility_tests.obj /Feout\compatibility_tests.exe /link user32.lib
 out\compatibility_tests.exe extra -windowed another
 cl /nologo /W4 /WX /MT /EHsc tests\proxy_smoke.cpp /Foout\proxy_smoke.obj /Feout\Release\proxy_smoke.exe
 ```
@@ -28,7 +28,7 @@ cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\ddraw_smoke.cpp /Foout\ddraw_smoke
 out\Release\ddraw_smoke.exe
 ```
 
-The 34 layout/grid checks validate UI/world geometry, coordinate boundaries, anchored
+The 36 layout/grid checks validate the release resolution gate, UI/world geometry, coordinate boundaries, anchored
 control origins and bounded row-major grid indices. They do not replace gameplay tests. The smoke test exercises unknown-host
 system forwarding and reads the current display mode without changing it. See
 [actual game observations and remaining manual checks](../docs/WIDESCREEN_DE.md).
@@ -48,7 +48,8 @@ cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\presentation_tests.cpp /Foout\pres
 out\presentation_tests.exe
 ```
 
-The 15 checks cover restoring minimized normal/maximized focus snapshots,
+The 33 checks cover offscreen composition, resize/failure/resource handling, restaurant geometry/picking,
+restoring minimized normal/maximized focus snapshots,
 aspect-preserving output, inverse mouse coordinates, bar/edge
 rejection and actual RGB565 GDI transfer using a 1920-wide source stride with only
 600 authored rows. First/last row and letterbox pixel checks guard against incorrect

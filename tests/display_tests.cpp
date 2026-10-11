@@ -98,5 +98,9 @@ int main()
               !pc2fix::GridCellCoordinates(0x1000, 0x1000, 0x7fffffff, 0x7fffffff, gridX, gridY),
           "invalid and overflowing grid dimensions rejected");
     check(gridX == 7 && gridY == 3, "rejected grid input leaves output coordinates unchanged");
+    check(pc2fix::SupportedWidescreenSize(1920, 1080), "release accepts tested Full-HD widescreen");
+    check(!pc2fix::SupportedWidescreenSize(2560, 1440) && !pc2fix::SupportedWidescreenSize(800, 600) &&
+              !pc2fix::SupportedWidescreenSize(-1, 1080),
+          "release refuses untested widescreen modes before applying dimensions");
     return failures ? 1 : 0;
 }
