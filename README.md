@@ -76,8 +76,7 @@ die originale `binkw32.dll` wiederherstellen. Die EXE wird nicht auf der Platte 
 Builds für Release und Debug x86 sowie automatische Geometrie-, Eingabe-,
 GDI- und Sicherheitsprüfungen laufen lokal und in GitHub Actions. Spieltests in
 einer separaten GOG-Kopie bestätigten Stadt/Restaurant, Möbelplatzierung,
-Sidebar, Rezept-/Statistikwechsel sowie Fensterwiederherstellung. Der Nutzer
-meldete zuletzt kein sichtbares Flackern.
+Sidebar, Rezept-/Statistikwechsel sowie Fensterwiederherstellung.
 
 - Menüs, Rezept- und Statistikansichten behalten ihr ursprüngliches 800×600-Layout
   und werden proportional mit schwarzen Rändern dargestellt.

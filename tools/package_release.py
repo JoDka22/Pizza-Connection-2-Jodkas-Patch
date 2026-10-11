@@ -49,6 +49,11 @@ def package(version):
     }
     for path in sorted((ROOT / 'docs').glob('*.md')):
         files['docs/' + path.name] = path.read_bytes()
+    # Reject local directory paths, including embedded CodeView/PDB paths.
+    local_path = re.compile(rb'(?<![A-Za-z0-9])[A-Za-z]:[\\/][A-Za-z0-9_ .()-]{3,}[\\/]')
+    for name, data in files.items():
+        if local_path.search(data) or local_path.search(data.replace(b'\0', b'')):
+            raise ValueError('Local directory path in package input: ' + name)
     hashes = {name: digest(data) for name, data in files.items()}
     files['BUILD_INFO.json'] = (json.dumps({
         'version': version, 'commit': commit, 'architecture': 'x86',

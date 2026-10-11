@@ -5,8 +5,8 @@ Dieser Bericht beschreibt die erste Bestandsaufnahme. Die nachfolgenden Bugfixes
 ## Nachgewiesener Ausgangspunkt
 
 Fork: https://github.com/JoDka22/pc2fix-self, Ausgangscommit `f1ad448`, Hauptbranch `master`.
-Arbeitskopie: `D:\Pirat\Pizacon2 test\pc2fix-self`.
-Lesbarer Installationsordner: `D:\Pirat\Pizacon2 test\pizza  connection 2\Pizza Connection 2`.
+Arbeitskopie: lokaler Checkout des Forks.
+Analysierte Installation: separate Kopie der deutschen GOG-Version.
 Keine Originaldatei und kein Spielstand wurde verändert. Lokale Testkopien der Bink-DLL liegen ausschließlich im ignorierten `out`-Ordner. Sie gehören niemals in Git oder ein Release.
 
 EXE: `fastfood2.exe`, 1.568.768 Bytes, SHA-256

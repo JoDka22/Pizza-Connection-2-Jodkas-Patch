@@ -1088,7 +1088,7 @@ static Bytes_0(void)
   auto x;
 #define id x
 
-  update_extra_cmt(0x401000, E_PREV +   0, "; File Name   : E:\\SteamLibrary\\steamapps\\common\\Pizza Connection 2\\fastfood2.exe");
+  update_extra_cmt(0x401000, E_PREV +   0, "; File Name   : fastfood2.exe");
   update_extra_cmt(0x401000, E_PREV +   1, "; Format      : Portable executable for 80386 (PE)");
   update_extra_cmt(0x401000, E_PREV +   2, "; Imagebase   : 400000");
   update_extra_cmt(0x401000, E_PREV +   3, "; Timestamp   : 3A39D466 (Fri Dec 15 08:20:54 2000)");
