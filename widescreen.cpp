@@ -1,6 +1,7 @@
 // MIT license; see LICENSE. Addresses are for the verified German GOG image only.
 #define WIN32_LEAN_AND_MEAN
 #include "widescreen.h"
+#include "camera_bounds.h"
 #include "main.h"
 #include "presentation.h"
 #include <MinHook.h>
@@ -20,6 +21,11 @@ DrawFn frameOriginal = nullptr;
 bool cityFrame = false;
 SpriteFn spriteOriginal = nullptr;
 BuffersFn buffersOriginal = nullptr;
+using CameraFn = int(__thiscall *)(void *, int, int);
+CameraFn cameraOriginal = nullptr;
+using AxisFn = int(__thiscall *)(void *, int);
+AxisFn cameraXOriginal = nullptr;
+AxisFn cameraYOriginal = nullptr;
 thread_local void *background = nullptr;
 thread_local bool worldBackground = false;
 thread_local bool panelFooter = false;
@@ -40,6 +46,83 @@ bool Writable(void *address, size_t size)
     auto start = reinterpret_cast<ULONG_PTR>(address);
     auto end = reinterpret_cast<ULONG_PTR>(region.BaseAddress) + region.RegionSize;
     return start <= end && size <= end - start;
+}
+int Zoom()
+{
+    auto scene = *reinterpret_cast<void **>(0x57c670);
+    return Writable(scene, 0x2da4) ? Field<int>(scene, 0x2da0) : -1;
+}
+int PhysicalUpper(void *object, bool vertical, int originalUpper)
+{
+    // 0x4ed0a0 stores the artwork edge before subtracting the viewport, then
+    // collapses max<min to min. Recover that lost interval only for backgrounds.
+    if (!Field<void *>(object, 0x70) && !Field<void *>(object, 0x74))
+        return originalUpper;
+    bool base = Field<int>(object, 0xc) == 16;
+    auto dimension =
+        *reinterpret_cast<int *>(base ? (vertical ? 0x57195c : 0x571958) : (vertical ? 0x571954 : 0x571950));
+    int edge = Field<int>(object, vertical ? 0x10164 : 0x10160);
+    int margin = Field<int>(object, vertical ? 0x10170 : 0x10168);
+    if (dimension <= 0 || edge <= 0)
+        return originalUpper;
+    int upper = edge - dimension + (vertical ? margin : -margin);
+    if (vertical && Zoom() == 2)
+        upper -= 56;
+    return min(originalUpper, upper);
+}
+int __fastcall CameraX(void *object, void *, int x)
+{
+    if (active && display.width == 1920 && display.height == 1080 && Writable(object, 0x10178))
+    {
+        int lower = Field<int>(object, 0x2c) + Field<int>(object, 0x1016c);
+        int upper = Field<int>(object, 0x34) - Field<int>(object, 0x10168);
+        x = pc2fix::LimitOversizedCameraAxis(x, lower, upper, PhysicalUpper(object, false, upper));
+    }
+    return cameraXOriginal(object, x);
+}
+int __fastcall CameraY(void *object, void *, int y)
+{
+    if (active && display.width == 1920 && display.height == 1080 && Writable(object, 0x10178))
+    {
+        int lower = Field<int>(object, 0x30) - Field<int>(object, 0x10174);
+        int upper = Field<int>(object, 0x38) + Field<int>(object, 0x10170) - (Zoom() == 2 ? 56 : 0);
+        y = pc2fix::LimitOversizedCameraAxis(y, lower, upper, PhysicalUpper(object, true, upper));
+    }
+    return cameraYOriginal(object, y);
+}
+int __fastcall Camera(void *object, void *, int x, int y)
+{
+    auto result = cameraOriginal(object, x, y);
+    if (active && Writable(object, 0x10178))
+    {
+        // Dimensions were already subtracted by 0x4ed0a0. Never subtract them twice.
+        int zoom = Zoom();
+        int left = Field<int>(object, 0x2c) + Field<int>(object, 0x1016c);
+        int right = PhysicalUpper(object, false, Field<int>(object, 0x34) - Field<int>(object, 0x10168));
+        int top = Field<int>(object, 0x30) - Field<int>(object, 0x10174);
+        int bottom = PhysicalUpper(
+            object, true, Field<int>(object, 0x38) + Field<int>(object, 0x10170) - (zoom == 2 ? 56 : 0));
+        static int lastZoom = -2;
+        static unsigned lines = 0;
+        if (lines < 48 && (result || zoom != lastZoom))
+        {
+            char line[256]{};
+            sprintf_s(line,
+                      "wide: camera zoom=%d request=%d,%d actual=%d,%d limits=%d,%d..%d,%d viewport=%lu,%lu",
+                      zoom, x, y, Field<int>(object, 0xe8), Field<int>(object, 0xec), left, top, right,
+                      bottom, *reinterpret_cast<DWORD *>(0x571950), *reinterpret_cast<DWORD *>(0x571954));
+            Log(line);
+            sprintf_s(line, "wide: camera raw=%d,%d..%d,%d margins=%d,%d,%d,%d artEdge=%d,%d",
+                      Field<int>(object, 0x2c), Field<int>(object, 0x30), Field<int>(object, 0x34),
+                      Field<int>(object, 0x38), Field<int>(object, 0x10168), Field<int>(object, 0x1016c),
+                      Field<int>(object, 0x10170), Field<int>(object, 0x10174), Field<int>(object, 0x10160),
+                      Field<int>(object, 0x10164));
+            Log(line);
+            ++lines;
+            lastZoom = zoom;
+        }
+    }
+    return result;
 }
 bool HasWorldCanvas(void *window)
 {
@@ -293,6 +376,12 @@ bool InstallWidescreen(const pc2fix::DisplayLayout &layout)
                       reinterpret_cast<void **>(&spriteOriginal)) != MH_OK ||
         MH_CreateHook(reinterpret_cast<void *>(0x4ea230), &Buffers,
                       reinterpret_cast<void **>(&buffersOriginal)) != MH_OK ||
+        MH_CreateHook(reinterpret_cast<void *>(0x4ed440), &Camera,
+                      reinterpret_cast<void **>(&cameraOriginal)) != MH_OK ||
+        MH_CreateHook(reinterpret_cast<void *>(0x4ed360), &CameraX,
+                      reinterpret_cast<void **>(&cameraXOriginal)) != MH_OK ||
+        MH_CreateHook(reinterpret_cast<void *>(0x4ed3c0), &CameraY,
+                      reinterpret_cast<void **>(&cameraYOriginal)) != MH_OK ||
         !InstallPresentationHooks() || MH_EnableHook(MH_ALL_HOOKS) != MH_OK)
     {
         MH_DisableHook(MH_ALL_HOOKS);
