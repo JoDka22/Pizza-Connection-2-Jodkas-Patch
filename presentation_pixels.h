@@ -38,7 +38,11 @@ inline bool DrawRestaurantView(HDC dc, const void *pixels, LONG pitch, const Dis
     int saved = SaveDC(dc);
     if (!saved)
         return false;
-    IntersectClipRect(dc, area.left, area.top, area.right, area.bottom);
+    if (IntersectClipRect(dc, area.left, area.top, area.right, area.bottom) == ERROR)
+    {
+        RestoreDC(dc, saved);
+        return false;
+    }
     FillRect(dc, &area, static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
     SetStretchBltMode(dc, COLORONCOLOR);
     // GDI source Y is relative to the bottom even for a top-down DIB crop.
