@@ -5,6 +5,16 @@
 #include <windows.h>
 namespace pc2fix
 {
+inline WINDOWPLACEMENT FocusRestorePlacement(WINDOWPLACEMENT placement)
+{
+    if (placement.showCmd == SW_SHOWMINIMIZED || placement.showCmd == SW_MINIMIZE ||
+        placement.showCmd == SW_SHOWMINNOACTIVE)
+    {
+        placement.showCmd = placement.flags & WPF_RESTORETOMAXIMIZED ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL;
+        placement.flags &= ~WPF_RESTORETOMAXIMIZED;
+    }
+    return placement;
+}
 inline RECT FitView(int width, int height, int sourceWidth, int sourceHeight)
 {
     if (width <= 0 || height <= 0 || sourceWidth <= 0 || sourceHeight <= 0)

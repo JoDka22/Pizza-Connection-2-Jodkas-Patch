@@ -141,7 +141,10 @@ LRESULT __fastcall Message(void *object, void *, HWND window, UINT msg, WPARAM w
     auto result = messageOriginal(object, window, msg, wp, lp);
     if (enabled && framed && window == gameWindow && msg == WM_ACTIVATEAPP && wp && haveFocusPlacement)
     {
-        SetWindowPlacement(window, &focusPlacement);
+        // Deactivation may arrive after SC_MINIMIZE has changed showCmd.
+        // Reapplying that snapshot would immediately minimize an activated game.
+        auto restore = pc2fix::FocusRestorePlacement(focusPlacement);
+        SetWindowPlacement(window, &restore);
         haveFocusPlacement = false;
     }
     if (enabled && window == gameWindow && msg == WM_PAINT)

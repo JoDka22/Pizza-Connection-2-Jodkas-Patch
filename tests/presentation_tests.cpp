@@ -11,6 +11,28 @@ int main()
             ++failures;
     };
     auto wide = pc2fix::FitView(1920, 1080, 800, 600);
+    WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
+    placement.rcNormalPosition = {100, 120, 1380, 840};
+    placement.showCmd = SW_SHOWMINIMIZED;
+    auto restored = pc2fix::FocusRestorePlacement(placement);
+    check(restored.showCmd == SW_SHOWNORMAL &&
+              EqualRect(&restored.rcNormalPosition, &placement.rcNormalPosition),
+          "minimized focus snapshot restores normal window with unchanged geometry");
+    placement.flags = WPF_RESTORETOMAXIMIZED;
+    restored = pc2fix::FocusRestorePlacement(placement);
+    check(restored.showCmd == SW_SHOWMAXIMIZED && !(restored.flags & WPF_RESTORETOMAXIMIZED),
+          "minimized maximized window returns to maximized state");
+    placement.showCmd = SW_MINIMIZE;
+    auto alternate = pc2fix::FocusRestorePlacement(placement);
+    placement.showCmd = SW_SHOWMINNOACTIVE;
+    check(alternate.showCmd == SW_SHOWMAXIMIZED &&
+              pc2fix::FocusRestorePlacement(placement).showCmd == SW_SHOWMAXIMIZED,
+          "all minimized show commands normalize for activation");
+    placement.showCmd = SW_SHOWMAXIMIZED;
+    restored = pc2fix::FocusRestorePlacement(placement);
+    check(restored.showCmd == placement.showCmd && restored.flags == placement.flags &&
+              EqualRect(&restored.rcNormalPosition, &placement.rcNormalPosition),
+          "ordinary focus snapshot remains unchanged");
     check(wide.left == 240 && wide.right == 1680 && wide.top == 0 && wide.bottom == 1080,
           "4:3 views use full height without distortion");
     auto city = pc2fix::FitView(1280, 720, 1920, 1080);
