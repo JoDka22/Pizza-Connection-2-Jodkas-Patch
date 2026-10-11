@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include "../display_layout.h"
+#include "../grid_corner.h"
 #include <cstdio>
 #include <windows.h>
 int main()
@@ -71,15 +72,31 @@ int main()
     check(vehicleCamera.cx == cityCamera.cx && vehicleCamera.cy == cityCamera.cy,
           "vehicle scene retains city camera");
     auto restaurantCamera = pc2fix::SceneCameraBase(layout, 4);
-    check(restaurantCamera.cx == 596 && restaurantCamera.cy == 551,
-          "restaurant world retains authored camera despite shared canvas type");
-    check(!pc2fix::NativeCityScene(0) && !pc2fix::NativeCityScene(-1) && !pc2fix::NativeCityScene(5) &&
-              !pc2fix::NativeCityScene(29),
+    check(restaurantCamera.cx == 1716 && restaurantCamera.cy == 1031,
+          "restaurant world uses expanded camera with native furniture coordinates");
+    check(!pc2fix::NativeWorldScene(0) && !pc2fix::NativeWorldScene(-1) && !pc2fix::NativeWorldScene(5) &&
+              !pc2fix::NativeWorldScene(29),
           "menus and unknown scenes do not expand world canvases");
     auto menuCamera = pc2fix::SceneCameraBase(layout, 5);
     auto restoredCamera = pc2fix::SceneCameraBase(layout, 1);
     check(menuCamera.cx == 596 && menuCamera.cy == 551 && restoredCamera.cx == 1716 &&
               restoredCamera.cy == 1031,
           "city camera is restored after a legacy view transition");
+    int gridX = -1, gridY = -1;
+    check(pc2fix::GridCellCoordinates(0x1000, 0x1000 + 12 * 15, 8, 4, gridX, gridY) && gridX == 7 &&
+              gridY == 1,
+          "empty grid corner uses row-major node position");
+    check(pc2fix::GridCellCoordinates(0x1000, 0x1000 + 12 * 31, 8, 4, gridX, gridY) && gridX == 7 &&
+              gridY == 3,
+          "last allocated grid cell accepted");
+    check(!pc2fix::GridCellCoordinates(0x1000, 0x1000 + 12 * 32, 8, 4, gridX, gridY) &&
+              !pc2fix::GridCellCoordinates(0x1000, 0xfff, 8, 4, gridX, gridY) &&
+              !pc2fix::GridCellCoordinates(0x1000, 0x1001, 8, 4, gridX, gridY),
+          "outside and misaligned grid node pointers rejected");
+    check(!pc2fix::GridCellCoordinates(0, 0, 8, 4, gridX, gridY) &&
+              !pc2fix::GridCellCoordinates(0x1000, 0x1000, 0, 4, gridX, gridY) &&
+              !pc2fix::GridCellCoordinates(0x1000, 0x1000, 0x7fffffff, 0x7fffffff, gridX, gridY),
+          "invalid and overflowing grid dimensions rejected");
+    check(gridX == 7 && gridY == 3, "rejected grid input leaves output coordinates unchanged");
     return failures ? 1 : 0;
 }

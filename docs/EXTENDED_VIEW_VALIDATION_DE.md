@@ -1,5 +1,13 @@
 # Ansichtswechsel und Restaurant: Full-HD-Regression
 
+**Historischer Stand von PR #8.** Die spaetere Debuggeranalyse widerlegt die
+unten vermutete Ursache des Rueckweg-Absturzes: Ein Maus-Hit-Test liest das bereits
+geloeschte Weltobjekt, nicht nachgewiesene Gitterbeschaedigung durch Kameramasse.
+Die nachgewiesene Korrektur steht in [FURNITURE_TRANSITION_FIX_DE.md](FURNITURE_TRANSITION_FIX_DE.md).
+Der inzwischen erweiterte Innenraum mit separatem Culling-Fix und aktuellen
+Fenstertests steht in [RESTAURANT_WIDESCREEN_DE.md](RESTAURANT_WIDESCREEN_DE.md).
+Die folgenden Beobachtungen beschreiben ausdruecklich den damaligen Zwischenstand.
+
 Stand: 11.10.2026. Getestet wird die separate, ignorierte Spielkopie mit
 Release-x86-DLL, `Widescreen=1`, `1920x1080`, `Presentation=1`, `Windowed=0`.
 Originalinstallation und Original-Spielstand werden nicht bearbeitet.
