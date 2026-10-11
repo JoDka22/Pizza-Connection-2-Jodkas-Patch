@@ -4,6 +4,9 @@
 
 See [runtime validation and follow-up fixes](docs/RUNTIME_VALIDATION_DE.md) for the actual local game tests and their limits.
 
+See [restaurant and view-transition regression checks](docs/EXTENDED_VIEW_VALIDATION_DE.md)
+for scene-specific camera dimensions and additional Full-HD gameplay checks.
+
 The optional [native city widescreen prototype](docs/WIDESCREEN_DE.md) creates a
 1920x1080 DirectDraw primary/backbuffer and a 1716x1031 city viewport. Camera bases,
 root bounds, world buffers and city UI geometry are integrated. Original UI pixels

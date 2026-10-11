@@ -7,6 +7,16 @@ struct DisplayLayout
     int width, height;
     RECT world, sidebar, status;
 };
+// Verified scene dispatcher: 1..3 are city views; 4 is the restaurant interior.
+// Interior canvases also use ID 42/type 7, so that control alone is insufficient.
+inline bool NativeCityScene(int scene)
+{
+    return scene >= 1 && scene <= 3;
+}
+inline SIZE SceneCameraBase(const DisplayLayout &layout, int scene)
+{
+    return NativeCityScene(scene) ? SIZE{layout.world.right, layout.world.bottom} : SIZE{596, 551};
+}
 // Original city viewport is 596x551. UI pixels retain their authored size.
 inline bool MakeLayout(int width, int height, DisplayLayout &result)
 {
