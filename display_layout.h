@@ -7,6 +7,11 @@ struct DisplayLayout
     int width, height;
     RECT world, sidebar, status;
 };
+// Public widescreen support is limited to the analysed and playtested mode.
+inline bool SupportedWidescreenSize(int width, int height)
+{
+    return width == 1920 && height == 1080;
+}
 // Verified scene dispatcher: 1..3 are city views; 4 is the restaurant interior.
 // Interior canvases also use ID 42/type 7, so that control alone is insufficient.
 inline bool NativeCityScene(int scene)

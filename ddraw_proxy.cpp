@@ -47,6 +47,9 @@ BOOL CALLBACK Initialise(PINIT_ONCE, PVOID, PVOID*)
     probe = probe || widescreen;
     auto width = GetPrivateProfileIntW(L"display", L"Width", 1920, path);
     auto height = GetPrivateProfileIntW(L"display", L"Height", 1080, path);
+    if (widescreen && !pc2fix::SupportedWidescreenSize(static_cast<int>(width), static_cast<int>(height))) {
+        probe = false; Log("ddraw: unsupported widescreen dimensions; original mode retained");
+    }
     if (!pc2fix::MakeLayout(static_cast<int>(width), static_cast<int>(height), layout)) {
         probe = false; Log("ddraw: invalid dimensions; original mode retained");
     }

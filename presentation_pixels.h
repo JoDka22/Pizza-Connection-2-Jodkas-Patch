@@ -43,8 +43,12 @@ inline bool DrawRestaurantView(HDC dc, const void *pixels, LONG pitch, const Dis
         RestoreDC(dc, saved);
         return false;
     }
-    FillRect(dc, &area, static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
-    SetStretchBltMode(dc, COLORONCOLOR);
+    if (!FillRect(dc, &area, static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH))) ||
+        !SetStretchBltMode(dc, COLORONCOLOR))
+    {
+        RestoreDC(dc, saved);
+        return false;
+    }
     // GDI source Y is relative to the bottom even for a top-down DIB crop.
     int rows = StretchDIBits(dc, destination.left, destination.top, destination.right - destination.left,
                              destination.bottom - destination.top, view.source.left,
@@ -81,8 +85,11 @@ inline bool DrawRgb16Frame(HDC dc, const void *pixels, LONG pitch, int width, in
                    {0, area.top, area.left, area.bottom},
                    {area.right, area.top, client.right, area.bottom}};
     for (auto &bar : bars)
-        FillRect(dc, &bar, static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
-    SetStretchBltMode(dc, COLORONCOLOR);
+        if (bar.right > bar.left && bar.bottom > bar.top &&
+            !FillRect(dc, &bar, static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH))))
+            return false;
+    if (!SetStretchBltMode(dc, COLORONCOLOR))
+        return false;
     int rows =
         StretchDIBits(dc, area.left, area.top, area.right - area.left, area.bottom - area.top, 0, 0, width,
                       height, pixels, reinterpret_cast<BITMAPINFO *>(&dib), DIB_RGB_COLORS, SRCCOPY);

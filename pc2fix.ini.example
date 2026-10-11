@@ -1,9 +1,10 @@
 [display]
-; Experimental city layout: native viewport, unscaled right/bottom UI.
-; Opt in only in a separate game copy. See docs/WIDESCREEN_DE.md for tested scope.
-Widescreen=0
-; Surface-only diagnostic mode when Widescreen=0; keeps original viewport/UI.
-; Both switches default to disabled. Widescreen=1 includes the surface change.
-RenderProbe=0
+; German GOG 1.006 only. Back up existing wrappers/config and saves first.
+; Borderless Full HD; use Windowed=1 for a resizable framed window.
+Widescreen=1
 Width=1920
 Height=1080
+Presentation=1
+Windowed=0
+; Developer surface-only probe; leave disabled for normal use.
+RenderProbe=0

@@ -1,74 +1,118 @@
-# Pizza Connection 2 – safe GOG compatibility foundation
+# Pizza Connection 2 – GOG Full-HD Patch
 
-**WIP** — Work in progress based on the original pc2fix fork. Read [the technical report](docs/TECHNICAL_REPORT_DE.md) before deploying.
+Dies ist ein unabhängiger **Fork von [mallgrab/pc2fix](https://github.com/mallgrab/pc2fix)**,
+weiterentwickelt in [JoDka22/pc2fix-self](https://github.com/JoDka22/pc2fix-self).
+Danke an mallgrab für die ursprüngliche Grundlage. Der Patch ist kein offizielles
+Update von GOG oder den Rechteinhabern des Spiels; eine eigene Spielinstallation
+wird benötigt. Lizenz- und Copyright-Hinweise bleiben erhalten.
 
-See [runtime validation and follow-up fixes](docs/RUNTIME_VALIDATION_DE.md) for the actual local game tests and their limits.
+## Erster Release: v0.1.0
 
-See [restaurant and view-transition regression checks](docs/EXTENDED_VIEW_VALIDATION_DE.md)
-for scene-specific camera dimensions and additional Full-HD gameplay checks.
+[Downloads und Versionshinweise](https://github.com/JoDka22/pc2fix-self/releases).
+Der erste öffentliche Vorabrelease richtet sich an die **deutsche GOG-Version
+1.006** und **1920×1080**. Andere EXE-Versionen werden vor Speicherpatches
+abgewiesen. Windows 10/11 sind das Entwicklungsziel; die bisherigen Spieltests
+erfolgten auf dem lokalen Windows-PC, nicht auf allen Treibern und Systemen.
 
-See [native restaurant viewport and furniture picking](docs/RESTAURANT_WIDESCREEN_DE.md)
-for the expanded interior, empty-cell culling fix and remaining artwork limits.
+## Was dieser Fork ergänzt
 
-See [centered, enlarged restaurant presentation](docs/CENTERED_RESTAURANT_DE.md)
-for proportional interior enlargement with unchanged sidebar and inverse furniture picking.
+- Echte Stadt-Renderfläche von 1920×1080 mit **1716×1031 Stadt-Viewport**:
+  mehr sichtbare Stadt statt gestrecktem 4:3-Bild.
+- Rechte Sidebar mit 204 Pixeln und untere Statusleiste mit 49 Pixeln;
+  ursprüngliche UI-Proportionen bleiben erhalten.
+- Restaurant bei passenden Hintergrundgrößen mittig und proportional vergrößert,
+  einschließlich angepasster Mauskoordinaten für Möbelplatzierung.
+- Randloses Full-HD und veränderbarer Fenstermodus ohne Desktop-Moduswechsel.
+- Korrekturen für Möbelvorschau beim Ansichtswechsel, leere Rasterzellen,
+  Kameragrenzen und Wiederherstellung minimierter Fenster.
+- Fertige Bilder werden in einem wiederverwendeten Puffer zusammengesetzt;
+  sichtbare Zwischenausgaben beim Vergrößern werden vermieden.
+- Prüfung der Original-EXE und geladenen Codebytes per SHA-256 vor den Hooks.
+  Gameplay, Geld, Inventar und Spielstandformat werden nicht absichtlich geändert.
 
-See [offscreen composition and restaurant flicker regression](docs/RESTAURANT_FLICKER_DE.md)
-for completed-frame output, buffer lifetime tests and remaining timing limits.
+Ungeprüfte Timing-/Framerate-Hacks aus dem ursprünglichen Ansatz sind nicht aktiv.
+Es gibt keine zugesagte FPS- oder Ladezeitverbesserung und keinen Multiplayer.
 
-The optional [native city widescreen prototype](docs/WIDESCREEN_DE.md) creates a
-1920x1080 DirectDraw primary/backbuffer and a 1716x1031 city viewport. Camera bases,
-root bounds, world buffers and city UI geometry are integrated. Original UI pixels
-retain their size; the sidebar moves right and the status bar moves down. The feature
-is disabled by default and intended for a separate test installation.
+## Installation
 
-The optional [Full-HD presenter](docs/PRESENTATION_DE.md) adds a resizable framed
-window or borderless fullscreen without changing the desktop display mode. City and restaurant
-rendering stays 1920x1080; menu, recipe and statistics views retain their authored 800x600 layout and are
-enlarged proportionally, centred with black bars. Mouse coordinates use the inverse
-output transform. This is opt-in and restricted to 1920x1080.
+1. Spiel beenden. Zuerst eine **separate Kopie der Installation und Sicherung der
+   Spielstände** anlegen. Vorhandene `ddraw.dll` und `pc2fix.ini` sichern; diese
+   können zu einem anderen Grafikwrapper gehören und dürfen nicht blind ersetzt werden.
+2. Das Release-ZIP herunterladen und entpacken. `ddraw.dll` und `pc2fix.ini` aus
+   dem ZIP neben `fastfood2.exe` in der Spielkopie ablegen.
+3. Spiel starten. Das mitgelieferte Profil aktiviert Full-HD und randloses Vollbild.
+   Für ein normales Fenster in `pc2fix.ini` **`Windowed=1`** setzen.
+4. Bei Problemen `pc2fix.log` im Spielordner ansehen. EXE-Version, Windows-Version,
+   Modus und Schritte zum Nachstellen bei einer Fehlermeldung angeben.
 
-See [minimize/focus restoration regression](docs/WINDOW_FOCUS_FIX_DE.md) for
-the correction that prevents restoring an activated window to its minimized state.
-
-The [camera bounds follow-up](docs/CAMERA_BOUNDS_DE.md) anchors oversized views
-inside the original renderer's safe range and records remaining map-edge limits.
-
-This branch recognises one analysed German GOG executable using full-file and loaded-code SHA-256 checks. Unknown or modified executables receive forwarding only. No simulation or frame timer memory patches are applied. Local gameplay observations are documented separately from compile/tests; complete UI, performance and Windows 10/11 compatibility across drivers remain unverified.
-
-The Bink proxy preserves the 83 exports and ordinals of the analysed original DLL. Initialisation occurs once on BinkSetSoundSystem, outside DllMain. A prepared window sizing adapter calculates an 800x600 client area using Windows APIs, tested in a hidden window. It is not installed as a hook yet: Bink initialisation cannot prove that the window thread has not started. `-windowed` is therefore currently refused and logged. This deliberately narrows the original patch to a safe foundation until a synchronised early bootstrap is available.
-
-## Build
-
-Visual Studio 2022 C++ Build Tools (v143) and Windows 10/11 SDK, x86 Developer Command Prompt:
-
-```bat
-msbuild pc2fix.sln /p:Configuration=Release /p:Platform=x86 /m
-msbuild pc2fix.sln /p:Configuration=Debug /p:Platform=x86 /m
+```ini
+[display]
+Widescreen=1
+Width=1920
+Height=1080
+Presentation=1
+Windowed=0
+RenderProbe=0
 ```
 
-Outputs: `out/Release/` and `out/Debug/`, each containing `binkw32.dll` and the optional
-`ddraw.dll`. Building never writes into a game installation. Release uses static CRT.
-See [test instructions](tests/README.md).
+`Windowed=0` bedeutet mit diesem Profil **randloses Vollbild**, nicht exklusives
+DirectDraw-Vollbild. Änderungen gelten nach einem Neustart. Der alte Parameter
+`-windowed` aktiviert diesen Presenter nicht. Ohne Konfigurationsdatei bleiben
+die optionalen Darstellungspatches deaktiviert. Andere Widescreen-Auflösungen
+als 1920×1080 werden in diesem Release abgewiesen.
 
-## Reversible manual deployment
+Die optionale `optional/binkw32.dll` ist ein separater Bink-Proxy für Diagnose
+und sichere Weiterleitung; **für den Full-HD-Patch ist sie nicht erforderlich**.
+Wer sie verwenden möchte, muss zuerst die Original-Bink-DLL sichern und eine
+unveränderte Kopie als `binkw32o.dll` neben der EXE ablegen. Erst danach den Proxy
+als `binkw32.dll` installieren. Nie den Proxy als Original umbenennen.
 
-Use a separate copy of your installation first. Keep your original installation and saves untouched.
+Zum Entfernen die hinzugefügte `ddraw.dll` und `pc2fix.ini` entfernen und zuvor
+vorhandene Dateien aus der Sicherung zurückspielen. Bei installiertem Bink-Proxy
+die originale `binkw32.dll` wiederherstellen. Die EXE wird nicht auf der Platte gepatcht.
 
-1. Back up the original binkw32.dll outside the test installation, recording its SHA-256.
-2. Copy that original DLL as binkw32o.dll into the test game directory. Do not replace an existing binkw32o.dll unless you have independently checked it.
-3. Only after backup, replace the test directory's binkw32.dll with the newly built proxy.
-4. Launch and inspect pc2fix.log. This build is for validation, not a release.
-5. To revert, restore the backed-up original binkw32.dll. Never rename the proxy to binkw32o.dll.
+## Geprüfter Umfang und bekannte Grenzen
 
-Do not upload game executables, assets, saves or original Bink DLLs to GitHub. The executable profile contains metadata only. MIT and vendor copyright notices are retained.
+Builds für Release und Debug x86 sowie automatische Geometrie-, Eingabe-,
+GDI- und Sicherheitsprüfungen laufen lokal und in GitHub Actions. Spieltests in
+einer separaten GOG-Kopie bestätigten Stadt/Restaurant, Möbelplatzierung,
+Sidebar, Rezept-/Statistikwechsel sowie Fensterwiederherstellung. Der Nutzer
+meldete zuletzt kein sichtbares Flackern.
 
-## GitHub validation
+- Menüs, Rezept- und Statistikansichten behalten ihr ursprüngliches 800×600-Layout
+  und werden proportional mit schwarzen Rändern dargestellt.
+- Restaurantvergrößerung nutzt vorhandene Grafik, keine zusätzlichen Raumdetails.
+  Große oder teilweise sichtbare Hintergründe behalten die native Ansicht.
+- Beim Ansichtswechsel kann die Engine kurz eine leere Weltfläche liefern.
+- Kartenränder bei weitem Zoom, weitere Raumvarianten, alle Möbelrotationen,
+  volle Restaurants und lange Sitzungen benötigen weitere Spieltests.
+- Vollständige Flackerfreiheit und Kompatibilität mit jedem Treiber sind nicht nachgewiesen.
+- Andere Grafikwrapper/Mods, andere Sprachversionen und 2560×1440 sind nicht unterstützt.
 
-See [CI and branch protection](docs/GITHUB_MAINTENANCE_DE.md). The integrated review
-contains the complete patch stack; known gameplay limits remain documented above.
+Erkannte EXE: `fastfood2.exe`, 1.568.768 Bytes, SHA-256
+`18cfd32e0ac5d6d98162ec016e058a2b51808d9ca49ebee933ce3166ff9922fd`.
+Bei unbekannten Hosts leitet der Display-Proxy an System-DirectDraw weiter;
+die Versionsprüfung wird nicht durch einen Konfigurationsschalter umgangen.
 
-## Future work
+## Entwicklung und technische Dokumentation
 
-Complete remaining widescreen/manual checks. Multiplayer remains an upstream idea
-and has not been implemented or tested.
+Visual Studio 2022 C++ Build Tools (v143), Windows SDK und x86:
+
+```bat
+tools\ci-windows.cmd
+```
+
+Die DLLs entstehen unter `out/Release/` und `out/Debug/`; der Build schreibt
+nichts in die Spielinstallation. Release verwendet die statische C++-Laufzeit.
+`python tools/package_release.py v0.1.0` erstellt das geprüfte ZIP unter `out/`.
+
+- [Release-Prüfung und Änderungen](docs/RELEASE_V0.1.0_DE.md)
+- [Technischer Aufbau](docs/TECHNICAL_REPORT_DE.md) und [Tests](tests/README.md)
+- [Stadt-Widescreen](docs/WIDESCREEN_DE.md) und [Presenter](docs/PRESENTATION_DE.md)
+- [Restaurant und Eingabe](docs/CENTERED_RESTAURANT_DE.md)
+- [Bildpuffer und Flackerfix](docs/RESTAURANT_FLICKER_DE.md)
+- [GitHub-Prüfungen und Branchschutz](docs/GITHUB_MAINTENANCE_DE.md)
+
+Patch-Code: [MIT](LICENSE). MinHook: eigene [Lizenz](vendors/minhook-master/LICENSE.txt).
+Releases enthalten keine Original-EXE, Spielgrafiken, Spielstände oder originalen
+Bink-DLLs. Die Rechte am Spiel und dessen Dateien verbleiben bei den Rechteinhabern.
