@@ -26,6 +26,8 @@ CameraFn cameraOriginal = nullptr;
 using AxisFn = int(__thiscall *)(void *, int);
 AxisFn cameraXOriginal = nullptr;
 AxisFn cameraYOriginal = nullptr;
+using SceneFn = void(__thiscall *)(void *, void *);
+SceneFn sceneOriginal = nullptr;
 thread_local void *background = nullptr;
 thread_local bool worldBackground = false;
 thread_local bool panelFooter = false;
@@ -52,6 +54,32 @@ int Zoom()
     auto scene = *reinterpret_cast<void **>(0x57c670);
     return Writable(scene, 0x2da4) ? Field<int>(scene, 0x2da0) : -1;
 }
+bool NativeCity()
+{
+    auto scene = *reinterpret_cast<void **>(0x57c670);
+    return Writable(scene, 0x294) && pc2fix::NativeCityScene(Field<int>(scene, 0x290));
+}
+void __fastcall Scene(void *object, void *, void *window)
+{
+    if (active && Writable(object, 0x2da4))
+    {
+        int scene = Field<int>(object, 0x290);
+        // The dispatcher has already destroyed the previous view. Change bases
+        // at canvas creation, before original culling and buffer allocation.
+        // Changing them at dispatcher entry corrupts old-world teardown.
+        if (scene)
+        {
+            auto size = pc2fix::SceneCameraBase(display, scene);
+            auto camera = reinterpret_cast<DWORD *>(0x571950);
+            camera[2] = size.cx;
+            camera[3] = size.cy;
+            char line[128]{};
+            sprintf_s(line, "wide: scene=%d camera base=%ldx%ld", scene, size.cx, size.cy);
+            Log(line);
+        }
+    }
+    sceneOriginal(object, window);
+}
 int PhysicalUpper(void *object, bool vertical, int originalUpper)
 {
     // 0x4ed0a0 stores the artwork edge before subtracting the viewport, then
@@ -72,7 +100,8 @@ int PhysicalUpper(void *object, bool vertical, int originalUpper)
 }
 int __fastcall CameraX(void *object, void *, int x)
 {
-    if (active && display.width == 1920 && display.height == 1080 && Writable(object, 0x10178))
+    if (active && NativeCity() && display.width == 1920 && display.height == 1080 &&
+        Writable(object, 0x10178))
     {
         int lower = Field<int>(object, 0x2c) + Field<int>(object, 0x1016c);
         int upper = Field<int>(object, 0x34) - Field<int>(object, 0x10168);
@@ -82,7 +111,8 @@ int __fastcall CameraX(void *object, void *, int x)
 }
 int __fastcall CameraY(void *object, void *, int y)
 {
-    if (active && display.width == 1920 && display.height == 1080 && Writable(object, 0x10178))
+    if (active && NativeCity() && display.width == 1920 && display.height == 1080 &&
+        Writable(object, 0x10178))
     {
         int lower = Field<int>(object, 0x30) - Field<int>(object, 0x10174);
         int upper = Field<int>(object, 0x38) + Field<int>(object, 0x10170) - (Zoom() == 2 ? 56 : 0);
@@ -152,7 +182,8 @@ void __fastcall Frame(void *object, void *, void *surface)
             for (DWORD i = 0; i < count; ++i)
             {
                 auto window = Field<void *>(object, 0x14 + i * 4);
-                if (Writable(window, 0x50) && Field<DWORD>(window, 0x4c) && HasWorldCanvas(window))
+                if (NativeCity() && Writable(window, 0x50) && Field<DWORD>(window, 0x4c) &&
+                    HasWorldCanvas(window))
                     city = true;
             }
         if (city != cityFrame)
@@ -226,8 +257,8 @@ void __fastcall Buffers(void *object, void *, void *draw, int width, int height,
     // through 0x4859c0, including the game's existing zoom factors.
     buffersOriginal(object, draw, width, height, canvas, a5, a6);
     char line[160]{};
-    sprintf_s(line, "wide: world allocator completed %dx%d (viewport %ldx%ld)", width, height,
-              display.world.right, display.world.bottom);
+    sprintf_s(line, "wide: world allocator completed %dx%d (camera base %lux%lu)", width, height,
+              *reinterpret_cast<DWORD *>(0x571958), *reinterpret_cast<DWORD *>(0x57195c));
     Log(line);
 }
 void __fastcall DrawWindow(void *object, void *, void *surface)
@@ -262,7 +293,8 @@ void __fastcall DrawWindow(void *object, void *, void *surface)
     }
     auto &bounds = Field<RECT>(object, 8);
     bool changed = false;
-    if (world && bounds.left == 0 && bounds.top == 0 && bounds.right == 800 && bounds.bottom == 600)
+    if (world && NativeCity() && bounds.left == 0 && bounds.top == 0 && bounds.right == 800 &&
+        bounds.bottom == 600)
     {
         bounds.right = display.width;
         bounds.bottom = display.height;
@@ -335,11 +367,12 @@ void __fastcall DrawWindow(void *object, void *, void *surface)
     auto previousWorld = worldBackground;
     auto previousPanel = panelBounds;
     auto previousFooter = panelFooter;
+    const bool cityWorld = world && NativeCity();
     background =
-        (world || (bounds.right == display.width && bounds.bottom == display.height && bounds.left > 0))
+        (cityWorld || (bounds.right == display.width && bounds.bottom == display.height && bounds.left > 0))
             ? Field<void *>(object, 0x94)
             : nullptr;
-    worldBackground = world;
+    worldBackground = cityWorld;
     panelBounds = bounds;
     panelFooter = footer;
     drawOriginal(object, surface);
@@ -382,6 +415,8 @@ bool InstallWidescreen(const pc2fix::DisplayLayout &layout)
                       reinterpret_cast<void **>(&cameraXOriginal)) != MH_OK ||
         MH_CreateHook(reinterpret_cast<void *>(0x4ed3c0), &CameraY,
                       reinterpret_cast<void **>(&cameraYOriginal)) != MH_OK ||
+        MH_CreateHook(reinterpret_cast<void *>(0x4859c0), &Scene,
+                      reinterpret_cast<void **>(&sceneOriginal)) != MH_OK ||
         !InstallPresentationHooks() || MH_EnableHook(MH_ALL_HOOKS) != MH_OK)
     {
         MH_DisableHook(MH_ALL_HOOKS);
