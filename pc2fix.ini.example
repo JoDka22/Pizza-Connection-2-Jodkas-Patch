@@ -1,0 +1,7 @@
+[display]
+; Diagnostic prototype only: this DOES NOT enlarge the playable viewport.
+; Keep disabled for normal play. Native surface changes leave 800x600 content
+; at the upper left. Camera/UI integration is documented in docs/WIDESCREEN_DE.md.
+RenderProbe=0
+Width=1920
+Height=1080
