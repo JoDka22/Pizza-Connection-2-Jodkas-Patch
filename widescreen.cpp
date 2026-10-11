@@ -506,6 +506,35 @@ bool IsNativeWorldFrame()
 {
     return nativeWorldFrame;
 }
+bool RestaurantArtwork(RECT &bounds)
+{
+    if (!active || !nativeWorldFrame)
+        return false;
+    auto scene = *reinterpret_cast<void **>(0x57c670);
+    if (!Writable(scene, 0x300) || Field<int>(scene, 0x290) != 4)
+        return false;
+    auto world = Field<void *>(scene, 0x2fc);
+    if (!Writable(world, 0x10178) || Field<int>(world, 0xc) != 16 || Field<void *>(world, 0x70))
+        return false;
+    auto sprite = Field<void *>(world, 0x74);
+    if (!Writable(sprite, 0x38))
+        return false;
+    using SizeFn = void(__thiscall *)(void *, int *, int *);
+    int width = 0, height = 0, x = 0, y = 0;
+    reinterpret_cast<SizeFn>(0x53d090)(sprite, &width, &height);
+    reinterpret_cast<SizeFn>(0x53d100)(sprite, &x, &y);
+    if (width <= 0 || height <= 0 || width > 16384 || height > 16384)
+        return false;
+    // Same background origin as 0x4efc2e..0x4efc73 (full-size world bitmap).
+    x += Field<int>(world, 0x2c) - 16 * *reinterpret_cast<int *>(0x571960) - Field<int>(world, 0xe8);
+    y += Field<int>(world, 0x30) - Field<int>(world, 0x10) * *reinterpret_cast<int *>(0x571964) -
+         Field<int>(world, 0xec);
+    if (x < 0 || y < 0 || x > display.world.right || y > display.world.bottom ||
+        width > display.world.right - x || height > display.world.bottom - y)
+        return false;
+    bounds = {x, y, x + width, y + height};
+    return true;
+}
 void StopWidescreen()
 {
     // Initial DirectDraw failure only, before root/world construction. Never

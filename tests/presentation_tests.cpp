@@ -41,6 +41,42 @@ int main()
     auto tall = pc2fix::FitView(1000, 1000, 1920, 1080);
     check(tall.top > 0 && tall.left == 0, "resized tall window letterboxes vertically");
     POINT point{};
+    pc2fix::DisplayLayout layout{};
+    pc2fix::MakeLayout(1920, 1080, layout);
+    pc2fix::RestaurantView restaurant{};
+    check(pc2fix::MakeRestaurantView(layout, {26, 79, 826, 630}, restaurant) &&
+              restaurant.destination.right - restaurant.destination.left > 800 &&
+              abs(restaurant.destination.left - (restaurant.area.right - restaurant.destination.right)) <=
+                  1 &&
+              abs(restaurant.destination.top - (restaurant.area.bottom - restaurant.destination.bottom)) <= 1,
+          "restaurant enlarged and centered in area clear of sidebar tabs");
+    const auto &dst = restaurant.destination;
+    check(pc2fix::RestaurantPoint(restaurant, {dst.left, dst.top}, point) &&
+              point.x == restaurant.source.left && point.y == restaurant.source.top &&
+              pc2fix::RestaurantPoint(restaurant, {dst.right - 1, dst.bottom - 1}, point) &&
+              point.x < restaurant.source.right && point.y < restaurant.source.bottom,
+          "restaurant corners map inside the original artwork crop");
+    check(!pc2fix::RestaurantPoint(restaurant, {0, 0}, point) &&
+              !pc2fix::RestaurantPoint(restaurant, {dst.right, dst.top}, point),
+          "black margins and exclusive crop boundary reject furniture placement");
+    check(pc2fix::RestaurantPoint(restaurant, {1681, 300}, point) && point.x == 1681 && point.y == 300 &&
+              pc2fix::RestaurantPoint(restaurant, {900, 1031}, point) && point.x == 900 && point.y == 1031,
+          "protruding sidebar controls and status retain their input coordinates");
+    auto interiorWindow = pc2fix::FitView(1467, 825, 1920, 1080);
+    POINT screen{interiorWindow.left +
+                     MulDiv((dst.left + dst.right) / 2, interiorWindow.right - interiorWindow.left, 1920),
+                 interiorWindow.top +
+                     MulDiv((dst.top + dst.bottom) / 2, interiorWindow.bottom - interiorWindow.top, 1080)};
+    POINT native{};
+    check(pc2fix::ViewPoint(interiorWindow, 1920, 1080, screen, native) &&
+              pc2fix::RestaurantPoint(restaurant, native, point) && abs(point.x - 426) <= 1 &&
+              abs(point.y - 354) <= 1,
+          "window fit and restaurant inverse mapping compose accurately");
+    pc2fix::RestaurantView invalid{};
+    check(!pc2fix::MakeRestaurantView(layout, {-1, 0, 800, 600}, invalid) &&
+              !pc2fix::MakeRestaurantView(layout, {0, 0, 1800, 1000}, invalid) &&
+              !pc2fix::MakeRestaurantView(layout, {}, invalid),
+          "partly visible oversized and empty artwork preserve normal camera view");
     check(pc2fix::ViewPoint(wide, 800, 600, {960, 540}, point) && point.x == 400 && point.y == 300,
           "mouse uses inverse view transformation");
     check(!pc2fix::ViewPoint(wide, 800, 600, {239, 100}, point) &&
@@ -74,6 +110,26 @@ int main()
           "unused desktop bars cleared");
     check(!pc2fix::DrawRgb16Frame(dc, source.data(), 1598, 800, 600, 0xf800, 0x7e0, 0x1f, {0, 0, 1920, 1080}),
           "undersized source pitch rejected");
+    std::fill(source.begin(), source.end(), WORD{0});
+    for (int y = restaurant.source.top; y < restaurant.source.bottom; ++y)
+        for (int x = restaurant.source.left; x < restaurant.source.right; ++x)
+            source[y * 1920 + x] =
+                y < (restaurant.source.top + restaurant.source.bottom) / 2 ? 0xf800 : 0x001f;
+    for (int y = 0; y < 1080; ++y)
+        for (int x = 1681; x < 1920; ++x)
+            source[y * 1920 + x] = 0x07e0;
+    check(pc2fix::DrawRgb16Frame(dc, source.data(), 3840, 1920, 1080, 0xf800, 0x7e0, 0x1f,
+                                 {0, 0, 1920, 1080}) &&
+              pc2fix::DrawRestaurantView(dc, source.data(), 3840, layout, 0xf800, 0x7e0, 0x1f,
+                                         {0, 0, 1920, 1080}, restaurant),
+          "actual GDI restaurant crop and enlargement succeeds");
+    check(GetPixel(dc, (dst.left + dst.right) / 2, dst.top + 2) == RGB(255, 0, 0) &&
+              GetPixel(dc, (dst.left + dst.right) / 2, dst.bottom - 3) == RGB(0, 0, 255),
+          "nonzero source crop retains top and bottom row orientation");
+    check(GetPixel(dc, 1681, 300) == RGB(0, 255, 0) && GetPixel(dc, 1900, 300) == RGB(0, 255, 0) &&
+              GetPixel(dc, 1800, 1050) == RGB(0, 255, 0),
+          "world redraw preserves original sidebar overhang and status pixels");
+    check(GetPixel(dc, 0, 100) == RGB(0, 0, 0), "old restaurant origin erased from presentation");
     SelectObject(dc, previous);
     DeleteObject(dib);
     DeleteDC(dc);
