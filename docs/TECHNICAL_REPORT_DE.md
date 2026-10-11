@@ -1,5 +1,7 @@
 # Technischer Bericht – Stand 11.10.2026
 
+Dieser Bericht beschreibt die erste Bestandsaufnahme. Die nachfolgenden Bugfixes und inzwischen durchgeführten Spieltests stehen in [RUNTIME_VALIDATION_DE.md](RUNTIME_VALIDATION_DE.md); frühere Angaben zu noch nicht durchgeführten Tests gelten für den damaligen Prüfstand.
+
 ## Nachgewiesener Ausgangspunkt
 
 Fork: https://github.com/JoDka22/pc2fix-self, Ausgangscommit `f1ad448`, Hauptbranch `master`.
