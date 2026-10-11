@@ -8,8 +8,9 @@ Entwicklungsdokumentation erhalten. Nicht zusaetzlich beide Wege mergen.
 Der aktive Schutz fuer master und den jeweiligen Standardbranch sperrt
 Force-Push und Loeschung. Aenderungen muessen ueber Pull Requests erfolgen;
 Diskussionen muessen vor dem Merge aufgeloest sein. Nach dem ersten erfolgreichen
-Actions-Lauf ist `Windows x86 build and tests` als Pflichtpruefung vorgesehen,
-mit aktuellem Zielbranch. Keine Ausnahmen fuer Administratoren. Es wird keine
+Actions-Lauf ist `Windows x86 build and tests` als Pflichtpruefung aktiviert,
+mit aktuellem Zielbranch und festgelegter GitHub-Actions-App. Keine Ausnahmen
+fuer Administratoren. Es wird keine
 fremde Review-Freigabe erzwungen, die einen allein gepflegten Fork blockiert.
 
 GitHub Actions baut Release und Debug mit VS2022/v143 x86. Anschliessend laufen
