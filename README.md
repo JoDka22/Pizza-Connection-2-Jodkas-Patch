@@ -1,6 +1,6 @@
 # Pizza Connection 2 – safe GOG compatibility foundation
 
-Work in progress based on the original pc2fix fork. Read [the technical report](docs/TECHNICAL_REPORT_DE.md) before deploying.
+**WIP** — Work in progress based on the original pc2fix fork. Read [the technical report](docs/TECHNICAL_REPORT_DE.md) before deploying.
 
 See [runtime validation and follow-up fixes](docs/RUNTIME_VALIDATION_DE.md) for the actual local game tests and their limits.
 
@@ -47,3 +47,13 @@ Use a separate copy of your installation first. Keep your original installation 
 5. To revert, restore the backed-up original binkw32.dll. Never rename the proxy to binkw32o.dll.
 
 Do not upload game executables, assets, saves or original Bink DLLs to GitHub. The executable profile contains metadata only. MIT and vendor copyright notices are retained.
+
+## GitHub validation
+
+See [CI and branch protection](docs/GITHUB_MAINTENANCE_DE.md). The integrated review
+contains the complete patch stack; known gameplay limits remain documented above.
+
+## Future work
+
+Complete remaining widescreen/manual checks. Multiplayer remains an upstream idea
+and has not been implemented or tested.
