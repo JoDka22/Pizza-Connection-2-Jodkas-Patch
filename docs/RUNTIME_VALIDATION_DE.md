@@ -24,7 +24,7 @@ Zusätzliche Härtung: Die Versionsprüfung prüft mit VirtualQuery, ob Header u
 
 Zwei separate vollständige Kopien der lokal vorhandenen Installation wurden unter out/game-validation angelegt. Die eine enthält das Original-Bink, die andere den Proxy und eine unveränderte lokale Binkkopie. Dieser Ordner wird nicht versioniert. Originalinstallation und vorhandene Original-Spielstände wurden nicht verändert.
 
-Tests auf einem einzelnen Windows-System; keine umfassende Windows-Testmatrix. Spielversion 1.006, hashbasierte Erkennung.
+Die Spieltests erfolgten auf einem einzelnen Windows-System; dies ist keine Windows-10/11-Testmatrix. Spiel-Fenstertitel: Version 1.006. Dateiressource und VER-Datei nennen andere Werte; die Freigabe bleibt deshalb hashbasiert.
 
 Beobachtungen:
 

@@ -52,5 +52,6 @@ Keine Original-EXE, Original-DLL, Spielgrafik oder Spielstaende sind im Paket.
 Weitere Raumvarianten, alle Rotationen, Personal, lange Sitzungen und Kartenraender
 bei weitem Zoom bleiben offen. Rezepte/Statistik/Menues behalten ihr proportional
 skaliertes 800x600-Layout. Kurze leere Weltbilder bei Ansichtswechseln sind moeglich.
-Hochfrequente Flackermessungen und allgemeine Treiber-/Windows-Kompatibilitaet sind nicht nachgewiesen.
+Hochfrequente Flackermessungen und allgemeine Treiber-/Windows-Kompatibilitaet
+sind nicht nachgewiesen.
 Der Release verspricht keine FPS-/Ladezeitsteigerung und aendert kein Spielstandformat.
