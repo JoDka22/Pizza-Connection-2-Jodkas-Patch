@@ -1,4 +1,3 @@
 #pragma once
-
 void Main();
-void Quit();
+void Log(const char* message);
