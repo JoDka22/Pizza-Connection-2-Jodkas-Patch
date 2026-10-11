@@ -28,8 +28,8 @@ cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\ddraw_smoke.cpp /Foout\ddraw_smoke
 out\Release\ddraw_smoke.exe
 ```
 
-The 29 layout checks validate UI/world geometry, coordinate boundaries and anchored
-control origins. They do not replace gameplay tests. The smoke test exercises unknown-host
+The 34 layout/grid checks validate UI/world geometry, coordinate boundaries, anchored
+control origins and bounded row-major grid indices. They do not replace gameplay tests. The smoke test exercises unknown-host
 system forwarding and reads the current display mode without changing it. See
 [actual game observations and remaining manual checks](../docs/WIDESCREEN_DE.md).
 

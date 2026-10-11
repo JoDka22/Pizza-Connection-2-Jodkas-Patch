@@ -27,8 +27,8 @@ RECT View(HWND window)
 {
     RECT client{};
     GetClientRect(window, &client);
-    return pc2fix::FitView(client.right, client.bottom, IsCityFrame() ? layout.width : 800,
-                           IsCityFrame() ? layout.height : 600);
+    return pc2fix::FitView(client.right, client.bottom, IsNativeWorldFrame() ? layout.width : 800,
+                           IsNativeWorldFrame() ? layout.height : 600);
 }
 void Paint()
 {
@@ -53,10 +53,10 @@ void Paint()
         {
             RECT client{};
             GetClientRect(gameWindow, &client);
-            if (!pc2fix::DrawRgb16Frame(dc, data.lpSurface, data.lPitch, IsCityFrame() ? layout.width : 800,
-                                        IsCityFrame() ? layout.height : 600, data.ddpfPixelFormat.dwRBitMask,
-                                        data.ddpfPixelFormat.dwGBitMask, data.ddpfPixelFormat.dwBBitMask,
-                                        client) &&
+            if (!pc2fix::DrawRgb16Frame(
+                    dc, data.lpSurface, data.lPitch, IsNativeWorldFrame() ? layout.width : 800,
+                    IsNativeWorldFrame() ? layout.height : 600, data.ddpfPixelFormat.dwRBitMask,
+                    data.ddpfPixelFormat.dwGBitMask, data.ddpfPixelFormat.dwBBitMask, client) &&
                 !reported)
             {
                 Log("present: GDI output failed");
@@ -101,7 +101,8 @@ void __fastcall Flip(void *object, void *)
     else if (!reported)
     {
         char line[96]{};
-        sprintf_s(line, "present: back-to-front copy failed HRESULT=%08lx; frame skipped", static_cast<DWORD>(result));
+        sprintf_s(line, "present: back-to-front copy failed HRESULT=%08lx; frame skipped",
+                  static_cast<DWORD>(result));
         Log(line);
         reported = true;
     }
@@ -130,8 +131,8 @@ LRESULT __fastcall Message(void *object, void *, HWND window, UINT msg, WPARAM w
         if (screen)
             ScreenToClient(window, &point);
         POINT mapped{};
-        if (!pc2fix::ViewPoint(View(window), IsCityFrame() ? layout.width : 800,
-                               IsCityFrame() ? layout.height : 600, point, mapped))
+        if (!pc2fix::ViewPoint(View(window), IsNativeWorldFrame() ? layout.width : 800,
+                               IsNativeWorldFrame() ? layout.height : 600, point, mapped))
             mapped = {-1, -1};
         if (screen)
             ClientToScreen(window, &mapped);

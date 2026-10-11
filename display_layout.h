@@ -13,9 +13,13 @@ inline bool NativeCityScene(int scene)
 {
     return scene >= 1 && scene <= 3;
 }
+inline bool NativeWorldScene(int scene)
+{
+    return NativeCityScene(scene) || scene == 4;
+}
 inline SIZE SceneCameraBase(const DisplayLayout &layout, int scene)
 {
-    return NativeCityScene(scene) ? SIZE{layout.world.right, layout.world.bottom} : SIZE{596, 551};
+    return NativeWorldScene(scene) ? SIZE{layout.world.right, layout.world.bottom} : SIZE{596, 551};
 }
 // Original city viewport is 596x551. UI pixels retain their authored size.
 inline bool MakeLayout(int width, int height, DisplayLayout &result)

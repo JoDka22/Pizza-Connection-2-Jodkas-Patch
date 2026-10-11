@@ -7,6 +7,9 @@ See [runtime validation and follow-up fixes](docs/RUNTIME_VALIDATION_DE.md) for 
 See [restaurant and view-transition regression checks](docs/EXTENDED_VIEW_VALIDATION_DE.md)
 for scene-specific camera dimensions and additional Full-HD gameplay checks.
 
+See [native restaurant viewport and furniture picking](docs/RESTAURANT_WIDESCREEN_DE.md)
+for the expanded interior, empty-cell culling fix and remaining artwork limits.
+
 The optional [native city widescreen prototype](docs/WIDESCREEN_DE.md) creates a
 1920x1080 DirectDraw primary/backbuffer and a 1716x1031 city viewport. Camera bases,
 root bounds, world buffers and city UI geometry are integrated. Original UI pixels
@@ -14,8 +17,8 @@ retain their size; the sidebar moves right and the status bar moves down. The fe
 is disabled by default and intended for a separate test installation.
 
 The optional [Full-HD presenter](docs/PRESENTATION_DE.md) adds a resizable framed
-window or borderless fullscreen without changing the desktop display mode. City
-rendering stays 1920x1080; other views retain their authored 800x600 layout and are
+window or borderless fullscreen without changing the desktop display mode. City and restaurant
+rendering stays 1920x1080; menu, recipe and statistics views retain their authored 800x600 layout and are
 enlarged proportionally, centred with black bars. Mouse coordinates use the inverse
 output transform. This is opt-in and restricted to 1920x1080.
 
