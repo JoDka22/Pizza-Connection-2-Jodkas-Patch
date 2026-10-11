@@ -1,0 +1,29 @@
+name: Windows validation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Windows x86 build and tests
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Build Release and Debug, then run native tests
+        shell: cmd
+        run: tools\ci-windows.cmd
+      - name: Verify release package contents and hashes
+        shell: cmd
+        run: python tools\package_release.py v0.1.0

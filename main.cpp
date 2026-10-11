@@ -1,216 +1,169 @@
 #define WIN32_LEAN_AND_MEAN
-#include "Windows.h"
-
-#include <string.h>
+#include <windows.h>
+#include <bcrypt.h>
 #include <shellapi.h>
-#include <stdio.h>
-#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <limits>
 #include <MinHook.h>
-
-#include "types.h"
-
-using Wndproc_t = LRESULT(__fastcall*)(uint32_t a1, uint32_t a2, HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
-Wndproc_t WndprocOrig = nullptr;
-
-using GameWndProc_t = LRESULT(__thiscall*)(uint32_t a1, HWND hWnd, uint32_t Msg, WPARAM wParam, LPARAM lParam);
-GameWndProc_t GameWndProcOrig = (GameWndProc_t)0x5252E0;
-
-using CreateCallbackTimer_t = uint32_t(__thiscall*)(uint32_t* This, void* func, uint32_t maxMs, uint32_t a4);
-CreateCallbackTimer_t CreateCallbackTimerOrig = 0;
-
-using ProcessGameTick_t = uint32_t(__thiscall*)(MainGame* game, uint32_t bFpsCounter);
-ProcessGameTick_t ProcessGameTickOrig = 0;
-
-using CreateWorldClock_t = uint32_t(__cdecl*)(WorldClock* clock);
-CreateWorldClock_t CreateWorldClockOrig = 0;
-
-using EnterCriticalSectionFunc_t = uint32_t(__thiscall*)(void* This);
-EnterCriticalSectionFunc_t EnterCriticalSectionFunc = (EnterCriticalSectionFunc_t)0x401320;
-EnterCriticalSectionFunc_t LeaveCriticalSectionFunc = (EnterCriticalSectionFunc_t)0x401340;
-
-double* gameSpeed = (double*)0x55C4C8;
-
-bool bEnableConsole = 0;
-uint32_t* bIsFocus = (uint32_t*)0x584504;
-uint32_t* bFullscreen = (uint32_t*)0x563860;
-
-uint32_t* hObject = (uint32_t*)0x57C0D8;
-
-uint32_t currentSpeed = 1;
-uint8_t* maxFrameMs = (uint8_t*)0x481713;
-uint32_t* gameState = (uint32_t*)0x56386C;
-uint32_t* maxEntityTickMs = nullptr;
-uint32_t* currentEntityTickMs = nullptr;
-
-uint8_t* waitForMultipleObjects = (uint8_t*)0x404E48;
-
-uint32_t* Window_Height = (uint32_t*)0x404824;
-uint32_t* Window_Width = (uint32_t*)0x404829;
-
-RECT* ClientRect = (RECT*)0x573D38;
-WorldClock* CurrentClock = nullptr;
-
-void ChangeGameSpeed(uint32_t speed)
+#include "main.h"
+#pragma comment(lib, "bcrypt.lib")
+#pragma comment(lib, "shell32.lib")
+namespace {
+using CreateWindowFn = decltype(&CreateWindowExA);
+CreateWindowFn originalCreateWindow = nullptr;
+constexpr char fileDigest[] = "18cfd32e0ac5d6d98162ec016e058a2b51808d9ca49ebee933ce3166ff9922fd";
+constexpr char textDigest[] = "1fe8d65180eb537ad2bfe89b3b40c1c541399f0e464aa0d6c24b274fc74b1d1a";
+bool DigestMatches(const BYTE* bytes, ULONG length, const char* expected)
 {
-    static uint32_t previousSpeed = 1;
-
-    if (!maxEntityTickMs)
-        return;
-
-    *gameSpeed = 1000 / speed;
-    *maxEntityTickMs = 200 / speed;
-    CurrentClock->msToTickClock = 3125 / speed;
-
-    // The current coroutine timer's accumulator, special care has to be taken so we dont constantly reset it.
-    // Or else the game will never actually execute the function.
-    if (previousSpeed != speed)
-    {
-        *currentEntityTickMs = 200 / speed;
-        previousSpeed = speed;
+    BCRYPT_ALG_HANDLE algorithm = nullptr;
+    BCRYPT_HASH_HANDLE hash = nullptr;
+    BYTE digest[32]{};
+    char hex[65]{};
+    bool ok = false;
+    if (BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0) return false;
+    if (BCryptCreateHash(algorithm, &hash, nullptr, 0, nullptr, 0, 0) >= 0 &&
+        BCryptHashData(hash, const_cast<BYTE*>(bytes), length, 0) >= 0 &&
+        BCryptFinishHash(hash, digest, sizeof(digest), 0) >= 0) {
+        for (unsigned i = 0; i < sizeof(digest); ++i) sprintf_s(hex + i * 2, 3, "%02x", digest[i]);
+        ok = std::strcmp(hex, expected) == 0;
     }
+    if (hash) BCryptDestroyHash(hash);
+    BCryptCloseAlgorithmProvider(algorithm, 0);
+    return ok;
 }
-
-LRESULT __stdcall Wndproc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
+bool KnownFile(const wchar_t* path)
 {
-    LONG WindowLongA; // eax
-
-    if ( Msg == WM_DESTROY )
-    {
-        SetEvent(hObject);
-        PostQuitMessage(0);
-    }
-    else if ( Msg == WM_ACTIVATEAPP )
-    {
-        *bIsFocus = true;
-    }
-
-    if ((*gameState != IN_GAME) && (*gameState != IN_FREEPLAY))
-        maxEntityTickMs = nullptr;
-
-    if (Msg == WM_KEYUP && maxEntityTickMs != nullptr)
-    {
-        switch (wParam)
-        {
-        case '1':
-            currentSpeed = 1;
-            break;
-        case '2':
-            currentSpeed = 2;
-            break;
-        case '3':
-            currentSpeed = 4;
-            break;
-        case '4':
-            currentSpeed = 8;
-            break;
-        default:
-            break;
+    HANDLE file = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    LARGE_INTEGER size{};
+    bool known = false;
+    if (GetFileSizeEx(file, &size) && size.QuadPart == 1568768) {
+        HANDLE mapping = CreateFileMappingW(file, nullptr, PAGE_READONLY, 0, 0, nullptr);
+        if (mapping) {
+            auto bytes = static_cast<const BYTE*>(MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0));
+            if (bytes) {
+                known = DigestMatches(bytes, static_cast<ULONG>(size.QuadPart), fileDigest);
+                UnmapViewOfFile(bytes);
+            }
+            CloseHandle(mapping);
         }
     }
-
-    WindowLongA = GetWindowLongA(hWnd, GWL_USERDATA);
-    if ( WindowLongA )
-        return GameWndProcOrig(WindowLongA, hWnd, Msg, wParam, lParam);
-    else
-        return DefWindowProcA(hWnd, Msg, wParam, lParam);
+    CloseHandle(file);
+    return known;
 }
-
-int __fastcall CreateCallbackTimer(uint32_t* This, void* EDX, void* func, int maxMs, int a4)
+bool ReadableRange(const void* pointer, SIZE_T length)
 {
-  if ((uint32_t)func == 0x481190)
-  {
-      int result = CreateCallbackTimerOrig(This, func, maxMs, a4);
-      
-      CallbackTimer* timer = *(CallbackTimer**)((char*)This + 0xC);
-      maxEntityTickMs = &timer->maxMs;
-      currentEntityTickMs = &timer->curMs;
-      *currentEntityTickMs = 200 / currentSpeed;
-
-      return result;
-  }
-  return CreateCallbackTimerOrig(This, func, maxMs, a4);
+    auto address = reinterpret_cast<ULONG_PTR>(pointer);
+    if (!address || length > (std::numeric_limits<ULONG_PTR>::max)() - address) return false;
+    const auto end = address + length;
+    while (address < end) {
+        MEMORY_BASIC_INFORMATION region{};
+        if (!VirtualQuery(reinterpret_cast<const void*>(address), &region, sizeof(region)) ||
+            region.State != MEM_COMMIT || (region.Protect & (PAGE_GUARD | PAGE_NOACCESS))) return false;
+        const auto access = region.Protect & 0xff;
+        if (access != PAGE_READONLY && access != PAGE_READWRITE && access != PAGE_WRITECOPY &&
+            access != PAGE_EXECUTE_READ && access != PAGE_EXECUTE_READWRITE && access != PAGE_EXECUTE_WRITECOPY)
+            return false;
+        const auto start = reinterpret_cast<ULONG_PTR>(region.BaseAddress);
+        if (region.RegionSize > (std::numeric_limits<ULONG_PTR>::max)() - start) return false;
+        const auto next = start + region.RegionSize;
+        if (next <= address) return false;
+        address = next;
+    }
+    return true;
 }
-
-void __cdecl CreateWorldClock(WorldClock* clock)
+bool KnownImage(const BYTE* base)
 {
-    CurrentClock = clock;
-    CreateWorldClockOrig(clock);
+    // This executable has stripped relocations. Reject any other layout or modified code.
+    if (!ReadableRange(base, 0x1000)) return false;
+    auto dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE || dos->e_lfanew < 0 || dos->e_lfanew > 0x800) return false;
+    auto nt = reinterpret_cast<const IMAGE_NT_HEADERS32*>(base + dos->e_lfanew);
+    if (nt->Signature != IMAGE_NT_SIGNATURE || nt->FileHeader.Machine != IMAGE_FILE_MACHINE_I386 ||
+        nt->FileHeader.TimeDateStamp != 0x3a39d466 || nt->FileHeader.NumberOfSections != 4 ||
+        nt->FileHeader.SizeOfOptionalHeader != sizeof(IMAGE_OPTIONAL_HEADER32) ||
+        nt->OptionalHeader.Magic != IMAGE_NT_OPTIONAL_HDR32_MAGIC ||
+        nt->OptionalHeader.ImageBase != 0x400000 ||
+        nt->OptionalHeader.SizeOfImage != 0x18e000) return false;
+    auto section = IMAGE_FIRST_SECTION(nt);
+    if (std::memcmp(section->Name, ".text\0\0\0", 8) || section->VirtualAddress != 0x1000 ||
+        section->Misc.VirtualSize != 0x15aabc || !(section->Characteristics & IMAGE_SCN_MEM_EXECUTE)) return false;
+    const auto code = base + section->VirtualAddress;
+    return ReadableRange(code, section->Misc.VirtualSize) &&
+        DigestMatches(code, section->Misc.VirtualSize, textDigest);
 }
-
-int __fastcall ProcessGameTick(MainGame* game, void* EDX, uint32_t bFpsCounter)
+bool KnownExecutable()
 {
-    ChangeGameSpeed(currentSpeed);
-    return ProcessGameTickOrig(game, bFpsCounter);
+    wchar_t path[32768]{};
+    DWORD length = GetModuleFileNameW(nullptr, path, _countof(path));
+    return length && length < _countof(path) && KnownFile(path) &&
+        reinterpret_cast<ULONG_PTR>(GetModuleHandleW(nullptr)) == 0x400000 &&
+        KnownImage(reinterpret_cast<const BYTE*>(GetModuleHandleW(nullptr)));
 }
-
+bool WantsWindowed()
+{
+    int count = 0;
+    auto args = CommandLineToArgvW(GetCommandLineW(), &count);
+    if (!args) return false;
+    bool requested = false;
+    for (int i = 1; i < count; ++i) if (lstrcmpiW(args[i], L"-windowed") == 0) requested = true;
+    LocalFree(args);
+    return requested;
+}
+[[maybe_unused]] HWND WINAPI CreateGameWindow(DWORD exStyle, LPCSTR className, LPCSTR title, DWORD style,
+    int x, int y, int width, int height, HWND parent, HMENU menu, HINSTANCE instance, LPVOID parameter)
+{
+    if (HIWORD(reinterpret_cast<ULONG_PTR>(className)) &&
+        std::strcmp(className, "Pizza Connection 2") == 0 && !parent &&
+        width == 800 && height == 600 && (style & WS_CAPTION) == WS_CAPTION) {
+        RECT frame{0, 0, 800, 600};
+        if (AdjustWindowRectEx(&frame, style, menu != nullptr, exStyle)) {
+            width = frame.right - frame.left;
+            height = frame.bottom - frame.top;
+            MONITORINFO monitor{sizeof(monitor)};
+            if (GetMonitorInfoW(MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY), &monitor)) {
+                x = monitor.rcWork.left + (monitor.rcWork.right - monitor.rcWork.left - width) / 2;
+                y = monitor.rcWork.top + (monitor.rcWork.bottom - monitor.rcWork.top - height) / 2;
+            }
+        }
+    }
+    return originalCreateWindow(exStyle, className, title, style, x, y, width, height,
+        parent, menu, instance, parameter);
+}
+}
+void Log(const char* message)
+{
+    OutputDebugStringA("pc2fix: "); OutputDebugStringA(message); OutputDebugStringA("\n");
+    wchar_t path[32768]{};
+    DWORD length = GetModuleFileNameW(nullptr, path, _countof(path));
+    if (!length || length >= _countof(path)) return;
+    auto slash = wcsrchr(path, L'\\');
+    if (!slash || wcscpy_s(slash + 1, _countof(path) - (slash + 1 - path), L"pc2fix.log")) return;
+    HANDLE file = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return;
+    DWORD written = 0;
+    WriteFile(file, message, static_cast<DWORD>(std::strlen(message)), &written, nullptr);
+    WriteFile(file, "\r\n", 2, &written, nullptr);
+    CloseHandle(file);
+}
 void Main()
 {
-    int argc = 0;
-    LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-    if (argc == 2 && lstrcmpW(argv[1], L"-windowed") == 0)
-        *bFullscreen = false;
-
-    if (bEnableConsole)
-    {
-        AllocConsole();
-
-        freopen_s((FILE**)stdout, "CONOUT$", "w", stdout);
-	    freopen_s((FILE**)stdout, "CONOUT$", "w", stderr);
-	    freopen_s((FILE**)stdout, "CONOUT$", "r", stdin);
+    Log("bootstrap: Bink audio initialisation; no simulation/timer patches");
+    if (!KnownExecutable()) {
+        Log("Bink bootstrap: unsupported or modified loaded code; no hooks/writes from this module (display proxy verifies independently)"); return;
     }
-
-    auto mhStatus = MH_Initialize();
-
-    MH_EnableHook(&CreateWindowExA);
-
-    if (MH_CreateHook((void*)0x525270, &Wndproc, reinterpret_cast<LPVOID*>(&WndprocOrig)) != MH_OK) throw;
-	if (MH_EnableHook((void*)0x525270) != MH_OK) throw;
-
-    if (MH_CreateHook((void*)0x403AC0, &CreateCallbackTimer, reinterpret_cast<LPVOID*>(&CreateCallbackTimerOrig)) != MH_OK) throw;
-	if (MH_EnableHook((void*)0x403AC0) != MH_OK) throw;
-
-    if (MH_CreateHook((void*)0x4DD2D0, &CreateWorldClock, reinterpret_cast<LPVOID*>(&CreateWorldClockOrig)) != MH_OK) throw;
-	if (MH_EnableHook((void*)0x4DD2D0) != MH_OK) throw;
-
-    if (MH_CreateHook((void*)0x525A10, &ProcessGameTick, reinterpret_cast<LPVOID*>(&ProcessGameTickOrig)) != MH_OK) throw;
-    if (MH_EnableHook((void*)0x525A10) != MH_OK) throw;
-
-    uint32_t processStartAddr = reinterpret_cast<uint32_t>(GetModuleHandle(nullptr));
-
-    DWORD oldProtect = NULL;
-    VirtualProtect((void*)(0x401000), sizeof(uint8_t) * 0x15b000, PAGE_EXECUTE_READWRITE, &oldProtect);
-
-    // stop intro
-    memset((void*)0x404196, 0x90, sizeof(uint8_t) * 5);
-    memset((void*)0x4041B1, 0x90, sizeof(uint8_t) * 5);
-
-    // center window
-    memset((void*)0x404420, 0xC3, sizeof(uint8_t) * 1);
-
-    // ret on srand
-    // memset((void*)0x54F0D5, 0xC3, sizeof(char) * 1);
-    
-    uint32_t screenW = GetSystemMetrics(SM_CXSCREEN);
-    uint32_t screenH = GetSystemMetrics(SM_CYSCREEN);
-
-    uint32_t centerX = screenW / 2;
-    uint32_t centerY = screenH / 2;
-    
-    ClientRect->left = centerY;
-    ClientRect->top = centerX - *(uint32_t*)Window_Width;
-
-    *maxFrameMs = 10;
-
-    *Window_Width = *(uint32_t*)Window_Width + 4;
-    *Window_Height = *(uint32_t*)Window_Height + 29;
-
-    *waitForMultipleObjects = 1;
-
-    VirtualProtect((void*)(0x401000), sizeof(uint8_t) * 0x15b000, oldProtect, &oldProtect);
-    VirtualProtect((void*)gameSpeed, sizeof(uint8_t) * 8, PAGE_EXECUTE_READWRITE, &oldProtect);
+    Log("recognised: German GOG fastfood2.exe, SHA-256 and loaded .text verified");
+    if (!WantsWindowed()) {
+        Log("Bink bootstrap: no display hooks; optional ddraw proxy owns display diagnostics"); return;
+    }
+    // A zero HWND does not prove that the game's window thread has not started.
+    // Until an early, synchronised entry point is established, do not race that thread.
+    Log("windowed activation deferred: Bink bootstrap cannot prove pre-window synchronisation");
 }
-
-void Quit()
+bool IsSupportedGame()
 {
-    auto mhStatus = MH_DisableHook(MH_ALL_HOOKS);
+    return KnownExecutable();
 }
