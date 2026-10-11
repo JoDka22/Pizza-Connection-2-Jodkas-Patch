@@ -157,9 +157,13 @@ void Main()
     }
     Log("recognised: German GOG fastfood2.exe, SHA-256 and loaded .text verified");
     if (!WantsWindowed()) {
-        Log("original fullscreen behaviour retained; widescreen not implemented"); return;
+        Log("Bink bootstrap: no display hooks; optional ddraw proxy owns display diagnostics"); return;
     }
     // A zero HWND does not prove that the game's window thread has not started.
     // Until an early, synchronised entry point is established, do not race that thread.
     Log("windowed activation deferred: Bink bootstrap cannot prove pre-window synchronisation");
+}
+bool IsSupportedGame()
+{
+    return KnownExecutable();
 }
