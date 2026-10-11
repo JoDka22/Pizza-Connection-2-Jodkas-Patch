@@ -17,3 +17,18 @@ For the missing-original case, create a separate ignored folder containing ONLY 
 The native tests also exercise null images and a privately mapped NoAccess code page. All changes are confined to the test process; original bytes on disk remain untouched. Actual local gameplay observations are documented in docs/RUNTIME_VALIDATION_DE.md.
 
 Python export audit: install pefile into an ignored local directory or your own environment and run tools/inspect_pe.py against your locally owned files. No game binary is supplied by the repository.
+# Display prototype tests
+
+From the repository root in an x86 Developer Command Prompt, after building the solution:
+
+```bat
+cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\display_tests.cpp /Foout\display_tests.obj /Feout\display_tests.exe
+out\display_tests.exe
+cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\ddraw_smoke.cpp /Foout\ddraw_smoke.obj /Feout\Release\ddraw_smoke.exe
+out\Release\ddraw_smoke.exe
+```
+
+The 13 layout checks validate the proposed UI/world geometry and coordinate boundaries;
+they do not establish gameplay widescreen support. The smoke test exercises unknown-host
+system forwarding and reads the current display mode without changing it. See
+[actual game observations and remaining manual checks](../docs/WIDESCREEN_DE.md).
