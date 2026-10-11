@@ -1,7 +1,9 @@
 [display]
-; Diagnostic prototype only: this DOES NOT enlarge the playable viewport.
-; Keep disabled for normal play. Native surface changes leave 800x600 content
-; at the upper left. Camera/UI integration is documented in docs/WIDESCREEN_DE.md.
+; Experimental city layout: native viewport, unscaled right/bottom UI.
+; Opt in only in a separate game copy. See docs/WIDESCREEN_DE.md for tested scope.
+Widescreen=0
+; Surface-only diagnostic mode when Widescreen=0; keeps original viewport/UI.
+; Both switches default to disabled. Widescreen=1 includes the surface change.
 RenderProbe=0
 Width=1920
 Height=1080

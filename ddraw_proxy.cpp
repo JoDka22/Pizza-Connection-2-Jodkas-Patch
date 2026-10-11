@@ -6,16 +6,19 @@
 #include <new>
 #include "main.h"
 #include "display_layout.h"
+#include "widescreen.h"
 namespace {
 using CreateFn = HRESULT (WINAPI*)(GUID*, LPDIRECTDRAW*, IUnknown*);
 INIT_ONCE init = INIT_ONCE_STATIC_INIT;
 CreateFn systemCreate = nullptr;
 bool known = false;
 bool probe = false;
+bool widescreen = false;
 volatile LONG probeClaimed = 0;
 bool dimensionsApplied = false;
 void RestoreDimensions()
 {
+    StopWidescreen();
     *reinterpret_cast<DWORD*>(0x574734) = 800;
     *reinterpret_cast<DWORD*>(0x574738) = 600;
     *reinterpret_cast<RECT*>(0x573d38) = {0,0,800,600};
@@ -38,13 +41,15 @@ BOOL CALLBACK Initialise(PINIT_ONCE, PVOID, PVOID*)
     auto slash = length && length < _countof(path) ? wcsrchr(path, L'\\') : nullptr;
     if (!slash || wcscpy_s(slash + 1, _countof(path) - (slash + 1 - path), L"pc2fix.ini")) return TRUE;
     probe = GetPrivateProfileIntW(L"display", L"RenderProbe", 0, path) == 1;
+    widescreen = GetPrivateProfileIntW(L"display", L"Widescreen", 0, path) == 1;
+    probe = probe || widescreen;
     auto width = GetPrivateProfileIntW(L"display", L"Width", 1920, path);
     auto height = GetPrivateProfileIntW(L"display", L"Height", 1080, path);
     if (!pc2fix::MakeLayout(static_cast<int>(width), static_cast<int>(height), layout)) {
         probe = false; Log("ddraw: invalid dimensions; original mode retained");
     }
-    Log(probe ? "ddraw: opt-in render probe; UI anchoring NOT implemented" :
-        "ddraw: diagnostics only; original resolution retained");
+    Log(probe ? (widescreen ? "ddraw: opt-in native widescreen layout" :
+        "ddraw: opt-in render probe; camera/UI unchanged") : "ddraw: diagnostics only; original resolution retained");
     return TRUE;
 }
 class Draw final : public IDirectDraw {
@@ -132,8 +137,8 @@ public:
 };
 bool ApplyProbe()
 {
-    // No executable bytes or original files are changed. These globals are read
-    // by the current thread AFTER this import returns and before surfaces exist.
+    // Data and optional verified in-memory detours are installed before surfaces
+    // exist. Original files remain untouched; unknown images never reach here.
     auto width = reinterpret_cast<DWORD*>(0x574734);
     auto height = reinterpret_cast<DWORD*>(0x574738);
     auto rect = reinterpret_cast<RECT*>(0x573d38);
@@ -156,7 +161,9 @@ bool ApplyProbe()
     *width = layout.width; *height = layout.height;
     *rect = {0,0,layout.width,layout.height};
     dimensionsApplied = true;
-    Log("ddraw: render dimensions set before initial display mode; camera/UI unchanged");
+    if (widescreen && !InstallWidescreen(layout)) { RestoreDimensions(); return false; }
+    Log(widescreen ? "ddraw: render/layout dimensions installed before initial display mode" :
+        "ddraw: render dimensions set before initial display mode; camera/UI unchanged");
     return true;
 }
 }
