@@ -23,6 +23,9 @@ ClipFn clipOriginal = nullptr;
 bool reported = false;
 WINDOWPLACEMENT focusPlacement{sizeof(WINDOWPLACEMENT)};
 bool haveFocusPlacement = false;
+pc2fix::RestaurantView restaurantView{};
+RECT restaurantArtwork{};
+bool restaurantPresented = false;
 RECT View(HWND window)
 {
     RECT client{};
@@ -53,14 +56,50 @@ void Paint()
         {
             RECT client{};
             GetClientRect(gameWindow, &client);
-            if (!pc2fix::DrawRgb16Frame(
-                    dc, data.lpSurface, data.lPitch, IsNativeWorldFrame() ? layout.width : 800,
-                    IsNativeWorldFrame() ? layout.height : 600, data.ddpfPixelFormat.dwRBitMask,
-                    data.ddpfPixelFormat.dwGBitMask, data.ddpfPixelFormat.dwBBitMask, client) &&
-                !reported)
+            restaurantPresented = false;
+            const bool baseDrawn = pc2fix::DrawRgb16Frame(
+                dc, data.lpSurface, data.lPitch, IsNativeWorldFrame() ? layout.width : 800,
+                IsNativeWorldFrame() ? layout.height : 600, data.ddpfPixelFormat.dwRBitMask,
+                data.ddpfPixelFormat.dwGBitMask, data.ddpfPixelFormat.dwBBitMask, client);
+            if (!baseDrawn && !reported)
             {
                 Log("present: GDI output failed");
                 reported = true;
+            }
+            RECT artwork{};
+            pc2fix::RestaurantView interior{};
+            if (baseDrawn && RestaurantArtwork(artwork) &&
+                pc2fix::MakeRestaurantView(layout, artwork, interior))
+            {
+                if (!pc2fix::DrawRestaurantView(
+                        dc, data.lpSurface, data.lPitch, layout, data.ddpfPixelFormat.dwRBitMask,
+                        data.ddpfPixelFormat.dwGBitMask, data.ddpfPixelFormat.dwBBitMask, client, interior))
+                {
+                    pc2fix::DrawRgb16Frame(dc, data.lpSurface, data.lPitch, layout.width, layout.height,
+                                           data.ddpfPixelFormat.dwRBitMask, data.ddpfPixelFormat.dwGBitMask,
+                                           data.ddpfPixelFormat.dwBBitMask, client);
+                    if (!reported)
+                    {
+                        Log("present: restaurant enlargement failed; native output retained");
+                        reported = true;
+                    }
+                    ReleaseDC(gameWindow, dc);
+                    front->Unlock(data.lpSurface);
+                    return;
+                }
+                restaurantView = interior;
+                restaurantArtwork = artwork;
+                restaurantPresented = true;
+                static unsigned lines = 0;
+                if (lines++ < 4)
+                {
+                    char line[192]{};
+                    sprintf_s(line, "present: restaurant artwork %ld,%ld..%ld,%ld centered %ld,%ld..%ld,%ld",
+                              artwork.left, artwork.top, artwork.right, artwork.bottom,
+                              interior.destination.left, interior.destination.top, interior.destination.right,
+                              interior.destination.bottom);
+                    Log(line);
+                }
             }
             ReleaseDC(gameWindow, dc);
         }
@@ -134,6 +173,18 @@ LRESULT __fastcall Message(void *object, void *, HWND window, UINT msg, WPARAM w
         if (!pc2fix::ViewPoint(View(window), IsNativeWorldFrame() ? layout.width : 800,
                                IsNativeWorldFrame() ? layout.height : 600, point, mapped))
             mapped = {-1, -1};
+        else if (restaurantPresented)
+        {
+            RECT current{};
+            if (RestaurantArtwork(current) && EqualRect(&current, &restaurantArtwork))
+            {
+                POINT interior{};
+                if (pc2fix::RestaurantPoint(restaurantView, mapped, interior))
+                    mapped = interior;
+                else
+                    mapped = {-1, -1};
+            }
+        }
         if (screen)
             ClientToScreen(window, &mapped);
         lp = MAKELPARAM(static_cast<WORD>(mapped.x), static_cast<WORD>(mapped.y));
@@ -251,6 +302,7 @@ HRESULT CreatePresentationSurface(IDirectDraw *draw, IDirectDrawSurface **output
 }
 void ReleasePresentation()
 {
+    restaurantPresented = false;
     if (back)
         back->Release();
     back = nullptr;

@@ -10,6 +10,9 @@ for scene-specific camera dimensions and additional Full-HD gameplay checks.
 See [native restaurant viewport and furniture picking](docs/RESTAURANT_WIDESCREEN_DE.md)
 for the expanded interior, empty-cell culling fix and remaining artwork limits.
 
+See [centered, enlarged restaurant presentation](docs/CENTERED_RESTAURANT_DE.md)
+for proportional interior enlargement with unchanged sidebar and inverse furniture picking.
+
 The optional [native city widescreen prototype](docs/WIDESCREEN_DE.md) creates a
 1920x1080 DirectDraw primary/backbuffer and a 1716x1031 city viewport. Camera bases,
 root bounds, world buffers and city UI geometry are integrated. Original UI pixels
