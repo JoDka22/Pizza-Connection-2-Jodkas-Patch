@@ -1,0 +1,10 @@
+[display]
+; German GOG 1.006 only. Back up existing wrappers/config and saves first.
+; Borderless Full HD; use Windowed=1 for a resizable framed window.
+Widescreen=1
+Width=1920
+Height=1080
+Presentation=1
+Windowed=0
+; Developer surface-only probe; leave disabled for normal use.
+RenderProbe=0
