@@ -33,4 +33,4 @@ bool InstallPresentationHooks();
 HRESULT PresentationCooperativeLevel(IDirectDraw *draw, HWND window);
 HRESULT CreatePresentationSurface(IDirectDraw *draw, IDirectDrawSurface **output);
 void ReleasePresentation();
-bool IsCityFrame();
+bool IsNativeWorldFrame();

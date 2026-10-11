@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include "widescreen.h"
 #include "camera_bounds.h"
+#include "grid_corner.h"
 #include "main.h"
 #include "presentation.h"
 #include <MinHook.h>
@@ -18,7 +19,7 @@ using BuffersFn = void(__thiscall *)(void *, void *, int, int, void *, int, int)
 RootFn rootOriginal = nullptr;
 DrawFn drawOriginal = nullptr;
 DrawFn frameOriginal = nullptr;
-bool cityFrame = false;
+bool nativeWorldFrame = false;
 SpriteFn spriteOriginal = nullptr;
 BuffersFn buffersOriginal = nullptr;
 using CameraFn = int(__thiscall *)(void *, int, int);
@@ -30,6 +31,9 @@ using SceneFn = void(__thiscall *)(void *, void *);
 SceneFn sceneOriginal = nullptr;
 using PlacementFn = int(__thiscall *)(void *, int, int, int, int, int, int);
 PlacementFn placementOriginal = nullptr;
+using CornerFn = void(__thiscall *)(void *, RECT *, int *, int *);
+CornerFn bottomCornerOriginal = nullptr;
+using CellFn = void *(__thiscall *)(void *, int, int, int, int);
 thread_local void *background = nullptr;
 thread_local bool worldBackground = false;
 thread_local bool panelFooter = false;
@@ -61,6 +65,38 @@ bool NativeCity()
     auto scene = *reinterpret_cast<void **>(0x57c670);
     return Writable(scene, 0x294) && pc2fix::NativeCityScene(Field<int>(scene, 0x290));
 }
+bool NativeWorld()
+{
+    auto scene = *reinterpret_cast<void **>(0x57c670);
+    return Writable(scene, 0x294) && pc2fix::NativeWorldScene(Field<int>(scene, 0x290));
+}
+void __fastcall BottomCorner(void *object, void *, RECT *rectangle, int *column, int *row)
+{
+    auto scene = *reinterpret_cast<void **>(0x57c670);
+    if (active && Writable(scene, 0x294) && Field<int>(scene, 0x290) == 4 && Writable(object, 0x50) &&
+        rectangle && column && row)
+    {
+        // Wide culling can end on a valid, empty node. The draw loop already
+        // skips empty nodes, but the original corner converter dereferences
+        // their absent payload to obtain the node's row-major index.
+        auto lookup = reinterpret_cast<CellFn>(0x4ed5a0);
+        auto cell = lookup(object, rectangle->right, rectangle->bottom, 1, 0);
+        int x = 0, y = 0;
+        if (Writable(cell, 12) && !Field<void *>(cell, 8) &&
+            pc2fix::GridCellCoordinates(reinterpret_cast<uintptr_t>(Field<void *>(object, 0x4c)),
+                                        reinterpret_cast<uintptr_t>(cell), Field<int>(object, 0x1c),
+                                        Field<int>(object, 0x20), x, y))
+        {
+            *column = x;
+            *row = y;
+            static unsigned reported = 0;
+            if (reported++ < 8)
+                Log("wide: restaurant culling corner resolved from empty grid node");
+            return;
+        }
+    }
+    bottomCornerOriginal(object, rectangle, column, row);
+}
 int __fastcall Placement(void *object, void *, int x, int y, int commit, int mode, int cellX, int cellY)
 {
     // The original mouse handler can run after the dispatcher clears +0x2fc.
@@ -73,6 +109,22 @@ int __fastcall Placement(void *object, void *, int x, int y, int commit, int mod
             Log("wide: rejected furniture hit-test without an active world");
         return 0;
     }
+    if (active && mode == 0 && Writable(object, 0x35c) && Field<int>(object, 0x290) == 4 &&
+        Field<int>(object, 0x344) != -1 && x >= 0 && y >= 0 && x <= *reinterpret_cast<int *>(0x571950) - 30 &&
+        y <= *reinterpret_cast<int *>(0x571954))
+    {
+        auto world = Field<void *>(object, 0x2fc);
+        if (Writable(world, 0x50))
+        {
+            auto lookup = reinterpret_cast<CellFn>(0x4ed5a0);
+            auto cell = lookup(world, x, y, 0, 0);
+            if (!Writable(cell, 12) || !Field<void *>(cell, 8))
+            {
+                Field<int>(object, 0x358) = 0;
+                return 0;
+            }
+        }
+    }
     return placementOriginal(object, x, y, commit, mode, cellX, cellY);
 }
 void __fastcall Scene(void *object, void *, void *window)
@@ -82,7 +134,7 @@ void __fastcall Scene(void *object, void *, void *window)
         int scene = Field<int>(object, 0x290);
         // The dispatcher has already destroyed the previous view. Change bases
         // at canvas creation, before original culling and buffer allocation.
-        // Changing them at dispatcher entry corrupts old-world teardown.
+        // Keep the previous view's dimensions until its teardown has completed.
         if (scene)
         {
             auto size = pc2fix::SceneCameraBase(display, scene);
@@ -188,7 +240,7 @@ bool HasWorldCanvas(void *window)
 }
 void __fastcall Frame(void *object, void *, void *surface)
 {
-    bool city = false;
+    bool worldFrame = false;
     // 0x523fe0 iterates the inline window pointer array at +0x14,
     // count +0x23c, and checks visibility at window +0x4c.
     if (Writable(object, 0x83e8))
@@ -198,14 +250,14 @@ void __fastcall Frame(void *object, void *, void *surface)
             for (DWORD i = 0; i < count; ++i)
             {
                 auto window = Field<void *>(object, 0x14 + i * 4);
-                if (NativeCity() && Writable(window, 0x50) && Field<DWORD>(window, 0x4c) &&
+                if (NativeWorld() && Writable(window, 0x50) && Field<DWORD>(window, 0x4c) &&
                     HasWorldCanvas(window))
-                    city = true;
+                    worldFrame = true;
             }
-        if (city != cityFrame)
+        if (worldFrame != nativeWorldFrame)
             Field<DWORD>(object, 0x238) = 1; // Clear stale pixels on scene transitions.
     }
-    cityFrame = city;
+    nativeWorldFrame = worldFrame;
     frameOriginal(object, surface);
 }
 void __fastcall Sprite(void *object, void *, void *surface, int x, int y)
@@ -309,7 +361,7 @@ void __fastcall DrawWindow(void *object, void *, void *surface)
     }
     auto &bounds = Field<RECT>(object, 8);
     bool changed = false;
-    if (world && NativeCity() && bounds.left == 0 && bounds.top == 0 && bounds.right == 800 &&
+    if (world && NativeWorld() && bounds.left == 0 && bounds.top == 0 && bounds.right == 800 &&
         bounds.bottom == 600)
     {
         bounds.right = display.width;
@@ -342,15 +394,15 @@ void __fastcall DrawWindow(void *object, void *, void *surface)
             moved = pc2fix::ClassifySidebarWindow(authored) != pc2fix::SidebarWindow::None;
         }
         auto kind = pc2fix::ClassifySidebarWindow(authored);
-        if (kind != pc2fix::SidebarWindow::None && moved != cityFrame)
+        if (kind != pc2fix::SidebarWindow::None && moved != nativeWorldFrame)
         {
-            int dx = cityFrame ? display.width - 800 : 800 - display.width;
-            int dy = cityFrame ? display.height - 600 : 600 - display.height;
+            int dx = nativeWorldFrame ? display.width - 800 : 800 - display.width;
+            int dy = nativeWorldFrame ? display.height - 600 : 600 - display.height;
             OffsetRect(&bounds, dx, 0);
             OffsetRect(&Field<RECT>(object, 0x18), dx, 0);
             if (kind == pc2fix::SidebarWindow::Panel)
             {
-                bounds.bottom = cityFrame ? display.height : 600;
+                bounds.bottom = nativeWorldFrame ? display.height : 600;
                 Field<RECT>(object, 0x18).bottom = bounds.bottom;
                 for (DWORD i = 0; i < Field<DWORD>(object, 0xf0); ++i)
                 {
@@ -360,7 +412,7 @@ void __fastcall DrawWindow(void *object, void *, void *surface)
                     auto &cr = Field<RECT>(child, 0x28);
                     // Keep building filter rows together; only the city-info toolbar
                     // is bottom anchored. Other panels keep their authored content.
-                    if (footer && cr.top + bounds.top >= (cityFrame ? 551 : display.world.bottom))
+                    if (footer && cr.top + bounds.top >= (nativeWorldFrame ? 551 : display.world.bottom))
                     {
                         OffsetRect(&cr, 0, dy);
                         Field<LONG>(child, 0x3c) += dy;
@@ -383,12 +435,12 @@ void __fastcall DrawWindow(void *object, void *, void *surface)
     auto previousWorld = worldBackground;
     auto previousPanel = panelBounds;
     auto previousFooter = panelFooter;
-    const bool cityWorld = world && NativeCity();
+    const bool nativeWorld = world && NativeWorld();
     background =
-        (cityWorld || (bounds.right == display.width && bounds.bottom == display.height && bounds.left > 0))
+        (nativeWorld || (bounds.right == display.width && bounds.bottom == display.height && bounds.left > 0))
             ? Field<void *>(object, 0x94)
             : nullptr;
-    worldBackground = cityWorld;
+    worldBackground = nativeWorld;
     panelBounds = bounds;
     panelFooter = footer;
     drawOriginal(object, surface);
@@ -435,6 +487,8 @@ bool InstallWidescreen(const pc2fix::DisplayLayout &layout)
                       reinterpret_cast<void **>(&sceneOriginal)) != MH_OK ||
         MH_CreateHook(reinterpret_cast<void *>(0x489180), &Placement,
                       reinterpret_cast<void **>(&placementOriginal)) != MH_OK ||
+        MH_CreateHook(reinterpret_cast<void *>(0x4edaf0), &BottomCorner,
+                      reinterpret_cast<void **>(&bottomCornerOriginal)) != MH_OK ||
         !InstallPresentationHooks() || MH_EnableHook(MH_ALL_HOOKS) != MH_OK)
     {
         MH_DisableHook(MH_ALL_HOOKS);
@@ -448,9 +502,9 @@ bool InstallWidescreen(const pc2fix::DisplayLayout &layout)
     Log("wide: root/camera/container/background/allocator hooks active");
     return true;
 }
-bool IsCityFrame()
+bool IsNativeWorldFrame()
 {
-    return cityFrame;
+    return nativeWorldFrame;
 }
 void StopWidescreen()
 {
