@@ -153,7 +153,7 @@ void Main()
 {
     Log("bootstrap: Bink audio initialisation; no simulation/timer patches");
     if (!KnownExecutable()) {
-        Log("unsupported executable or modified code: all game hooks and writes disabled"); return;
+        Log("Bink bootstrap: unsupported or modified loaded code; no hooks/writes from this module (display proxy verifies independently)"); return;
     }
     Log("recognised: German GOG fastfood2.exe, SHA-256 and loaded .text verified");
     if (!WantsWindowed()) {
