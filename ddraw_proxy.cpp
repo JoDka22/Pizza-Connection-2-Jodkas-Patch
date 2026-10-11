@@ -7,6 +7,7 @@
 #include "main.h"
 #include "display_layout.h"
 #include "widescreen.h"
+#include "presentation.h"
 namespace {
 using CreateFn = HRESULT (WINAPI*)(GUID*, LPDIRECTDRAW*, IUnknown*);
 INIT_ONCE init = INIT_ONCE_STATIC_INIT;
@@ -19,6 +20,7 @@ bool dimensionsApplied = false;
 void RestoreDimensions()
 {
     StopWidescreen();
+    ConfigurePresentation({}, false, false);
     *reinterpret_cast<DWORD*>(0x574734) = 800;
     *reinterpret_cast<DWORD*>(0x574738) = 600;
     *reinterpret_cast<RECT*>(0x573d38) = {0,0,800,600};
@@ -48,6 +50,10 @@ BOOL CALLBACK Initialise(PINIT_ONCE, PVOID, PVOID*)
     if (!pc2fix::MakeLayout(static_cast<int>(width), static_cast<int>(height), layout)) {
         probe = false; Log("ddraw: invalid dimensions; original mode retained");
     }
+    bool windowed = GetPrivateProfileIntW(L"display", L"Windowed", 0, path) == 1;
+    bool presentation = windowed || GetPrivateProfileIntW(L"display", L"Presentation", 0, path) == 1;
+    // This backend is deliberately restricted to the requested/tested Full-HD mode.
+    ConfigurePresentation(layout, presentation && widescreen && probe && width == 1920 && height == 1080, windowed);
     Log(probe ? (widescreen ? "ddraw: opt-in native widescreen layout" :
         "ddraw: opt-in render probe; camera/UI unchanged") : "ddraw: diagnostics only; original resolution retained");
     return TRUE;
@@ -56,9 +62,10 @@ class Draw final : public IDirectDraw {
     IDirectDraw* original;
     bool firstMode = true;
     bool allowFallback;
+    bool ownsPresentation;
     volatile LONG references = 1;
 public:
-    Draw(IDirectDraw* object, bool initialProbe) : original(object), allowFallback(initialProbe) {}
+    Draw(IDirectDraw* object, bool initialProbe) : original(object), allowFallback(initialProbe), ownsPresentation(initialProbe) {}
     HRESULT WINAPI QueryInterface(REFIID id, void** output) override {
         // The game does not query other interfaces. Preserve COM identity for IUnknown/IDirectDraw.
         static const GUID drawId = {0x6c14db80,0xa733,0x11ce,{0xa5,0x21,0,0x20,0xaf,0x0b,0xe5,0x60}};
@@ -73,14 +80,15 @@ public:
     ULONG WINAPI AddRef() override { return static_cast<ULONG>(InterlockedIncrement(&references)); }
     ULONG WINAPI Release() override {
         auto count = InterlockedDecrement(&references);
-        if (!count) { original->Release(); delete this; }
+        if (!count) { if (ownsPresentation) ReleasePresentation(); original->Release(); delete this; }
         return static_cast<ULONG>(count);
     }
     HRESULT WINAPI Compact() override { return original->Compact(); }
     HRESULT WINAPI CreateClipper(DWORD f, LPDIRECTDRAWCLIPPER* p, IUnknown* u) override { return original->CreateClipper(f,p,u); }
     HRESULT WINAPI CreatePalette(DWORD f, LPPALETTEENTRY e, LPDIRECTDRAWPALETTE* p, IUnknown* u) override { return original->CreatePalette(f,e,p,u); }
     HRESULT WINAPI CreateSurface(LPDDSURFACEDESC d, LPDIRECTDRAWSURFACE* p, IUnknown* u) override {
-        auto result = original->CreateSurface(d,p,u);
+        auto result = PresentationEnabled() && dimensionsApplied && d && (d->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)
+            ? CreatePresentationSurface(original,p) : original->CreateSurface(d,p,u);
         if (SUCCEEDED(result)) firstMode = false; // Never resize existing surfaces via fallback.
         if (SUCCEEDED(result) && p && *p && d && (d->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)) {
             DDSURFACEDESC actual{}; actual.dwSize = sizeof(actual);
@@ -116,11 +124,16 @@ public:
     HRESULT WINAPI GetVerticalBlankStatus(LPBOOL b) override { return original->GetVerticalBlankStatus(b); }
     HRESULT WINAPI Initialize(GUID* g) override { return original->Initialize(g); }
     HRESULT WINAPI RestoreDisplayMode() override { return original->RestoreDisplayMode(); }
-    HRESULT WINAPI SetCooperativeLevel(HWND window, DWORD flags) override { return original->SetCooperativeLevel(window,flags); }
+    HRESULT WINAPI SetCooperativeLevel(HWND window, DWORD flags) override {
+        return PresentationEnabled() && dimensionsApplied ? PresentationCooperativeLevel(original,window) :
+            original->SetCooperativeLevel(window,flags);
+    }
     HRESULT WINAPI SetDisplayMode(DWORD w, DWORD h, DWORD bits) override {
-        auto result = original->SetDisplayMode(w,h,bits);
+        auto result = PresentationEnabled() && dimensionsApplied ? DD_OK : original->SetDisplayMode(w,h,bits);
         char message[160]{};
-        sprintf_s(message,"ddraw: SetDisplayMode %lux%lux%lu HRESULT=%08lx",w,h,bits,static_cast<DWORD>(result));
+        sprintf_s(message,"ddraw: %s %lux%lux%lu HRESULT=%08lx",
+            PresentationEnabled() && dimensionsApplied ? "virtual render mode (desktop retained)" : "SetDisplayMode",
+            w,h,bits,static_cast<DWORD>(result));
         Log(message);
         // Fallback is safe only for the FIRST mode request, before any surface.
         if (firstMode && allowFallback && dimensionsApplied && w == static_cast<DWORD>(layout.width) &&

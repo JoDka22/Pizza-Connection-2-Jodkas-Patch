@@ -104,6 +104,7 @@
     <ClCompile Include="ddraw_proxy.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="widescreen.cpp" />
+    <ClCompile Include="presentation.cpp" />
     <ClCompile Include="vendors\minhook-master\src\buffer.c">
       <WarningLevel>Level3</WarningLevel>
     </ClCompile>
@@ -121,6 +122,8 @@
     <ClInclude Include="main.h" />
     <ClInclude Include="display_layout.h" />
     <ClInclude Include="widescreen.h" />
+    <ClInclude Include="presentation.h" />
+    <ClInclude Include="presentation_pixels.h" />
   </ItemGroup>
   <PropertyGroup>
     <IntDir>$(ProjectDir)out\display-obj\$(Configuration)\</IntDir>

@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include "widescreen.h"
 #include "main.h"
+#include "presentation.h"
 #include <MinHook.h>
 #include <cstdio>
 #include <windows.h>
@@ -292,7 +293,7 @@ bool InstallWidescreen(const pc2fix::DisplayLayout &layout)
                       reinterpret_cast<void **>(&spriteOriginal)) != MH_OK ||
         MH_CreateHook(reinterpret_cast<void *>(0x4ea230), &Buffers,
                       reinterpret_cast<void **>(&buffersOriginal)) != MH_OK ||
-        MH_EnableHook(MH_ALL_HOOKS) != MH_OK)
+        !InstallPresentationHooks() || MH_EnableHook(MH_ALL_HOOKS) != MH_OK)
     {
         MH_DisableHook(MH_ALL_HOOKS);
         MH_Uninitialize();
@@ -304,6 +305,10 @@ bool InstallWidescreen(const pc2fix::DisplayLayout &layout)
     active = true;
     Log("wide: root/camera/container/background/allocator hooks active");
     return true;
+}
+bool IsCityFrame()
+{
+    return cityFrame;
 }
 void StopWidescreen()
 {
