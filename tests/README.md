@@ -22,13 +22,21 @@ Python export audit: install pefile into an ignored local directory or your own 
 From the repository root in an x86 Developer Command Prompt, after building the solution:
 
 ```bat
-cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\display_tests.cpp /Foout\display_tests.obj /Feout\display_tests.exe
+cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\display_tests.cpp /Foout\display_tests.obj /Feout\display_tests.exe /link user32.lib
 out\display_tests.exe
 cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\ddraw_smoke.cpp /Foout\ddraw_smoke.obj /Feout\Release\ddraw_smoke.exe
 out\Release\ddraw_smoke.exe
 ```
 
-The 13 layout checks validate the proposed UI/world geometry and coordinate boundaries;
-they do not establish gameplay widescreen support. The smoke test exercises unknown-host
+The 23 layout checks validate UI/world geometry, coordinate boundaries and anchored
+control origins. They do not replace gameplay tests. The smoke test exercises unknown-host
 system forwarding and reads the current display mode without changing it. See
 [actual game observations and remaining manual checks](../docs/WIDESCREEN_DE.md).
+
+The additional safety test compiles the real widescreen implementation into an
+unknown host and verifies rejection before fixed-address reads or MinHook init:
+
+```bat
+cl /nologo /std:c++17 /W4 /WX /MT /EHsc /I vendors\minhook-master\include tests\widescreen_safety_tests.cpp out\display-obj\Release\buffer.obj out\display-obj\Release\hde32.obj out\display-obj\Release\hook.obj out\display-obj\Release\trampoline.obj /Foout\widescreen_safety_tests.obj /Feout\widescreen_safety_tests.exe /link user32.lib /LTCG
+out\widescreen_safety_tests.exe
+```

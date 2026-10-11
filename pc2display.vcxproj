@@ -103,10 +103,24 @@
   <ItemGroup>
     <ClCompile Include="ddraw_proxy.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="widescreen.cpp" />
+    <ClCompile Include="vendors\minhook-master\src\buffer.c">
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="vendors\minhook-master\src\hde\hde32.c">
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="vendors\minhook-master\src\hook.c">
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="vendors\minhook-master\src\trampoline.c">
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="main.h" />
     <ClInclude Include="display_layout.h" />
+    <ClInclude Include="widescreen.h" />
   </ItemGroup>
   <PropertyGroup>
     <IntDir>$(ProjectDir)out\display-obj\$(Configuration)\</IntDir>
