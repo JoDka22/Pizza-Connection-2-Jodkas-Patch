@@ -121,6 +121,7 @@
   <ItemGroup>
     <ClInclude Include="main.h" />
     <ClInclude Include="display_layout.h" />
+    <ClInclude Include="camera_bounds.h" />
     <ClInclude Include="widescreen.h" />
     <ClInclude Include="presentation.h" />
     <ClInclude Include="presentation_pixels.h" />
