@@ -44,3 +44,5 @@ HRESULT PresentationCooperativeLevel(IDirectDraw *draw, HWND window);
 HRESULT CreatePresentationSurface(IDirectDraw *draw, IDirectDrawSurface **output);
 void ReleasePresentation();
 bool IsNativeWorldFrame();
+// Returns fully visible artwork bounds only for the verified, active interior.
+bool RestaurantArtwork(RECT &bounds);
