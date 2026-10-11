@@ -37,6 +37,19 @@ The additional safety test compiles the real widescreen implementation into an
 unknown host and verifies rejection before fixed-address reads or MinHook init:
 
 ```bat
-cl /nologo /std:c++17 /W4 /WX /MT /EHsc /I vendors\minhook-master\include tests\widescreen_safety_tests.cpp out\display-obj\Release\buffer.obj out\display-obj\Release\hde32.obj out\display-obj\Release\hook.obj out\display-obj\Release\trampoline.obj /Foout\widescreen_safety_tests.obj /Feout\widescreen_safety_tests.exe /link user32.lib /LTCG
+cl /nologo /std:c++17 /W4 /WX /MT /EHsc /I vendors\minhook-master\include tests\widescreen_safety_tests.cpp out\display-obj\Release\buffer.obj out\display-obj\Release\hde32.obj out\display-obj\Release\hook.obj out\display-obj\Release\trampoline.obj /Foout\widescreen_safety_tests.obj /Feout\widescreen_safety_tests.exe /link user32.lib gdi32.lib /LTCG
 out\widescreen_safety_tests.exe
 ```
+
+## Full-HD presentation tests
+
+```bat
+cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\presentation_tests.cpp /Foout\presentation_tests.obj /Feout\presentation_tests.exe /link user32.lib gdi32.lib
+out\presentation_tests.exe
+```
+
+The 11 checks cover aspect-preserving output, inverse mouse coordinates, bar/edge
+rejection and actual RGB565 GDI transfer using a 1920-wide source stride with only
+600 authored rows. First/last row and letterbox pixel checks guard against incorrect
+DIB cropping. They do not test surface loss, game timing or every UI view. See
+[local runtime observations](../docs/PRESENTATION_DE.md).
