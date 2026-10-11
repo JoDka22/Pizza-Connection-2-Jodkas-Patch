@@ -62,5 +62,24 @@ int main()
           "unrecognised menu windows are not guessed into sidebar layout");
     check(pc2fix::ClassifySidebarWindow({1681, 218, 1920, 1080}) == pc2fix::SidebarWindow::None,
           "transformed panel is not shifted twice");
+    auto cityCamera = pc2fix::SceneCameraBase(layout, 1);
+    check(cityCamera.cx == 1716 && cityCamera.cy == 1031, "city scene uses expanded camera");
+    auto personCamera = pc2fix::SceneCameraBase(layout, 2);
+    check(personCamera.cx == cityCamera.cx && personCamera.cy == cityCamera.cy,
+          "person scene retains city camera");
+    auto vehicleCamera = pc2fix::SceneCameraBase(layout, 3);
+    check(vehicleCamera.cx == cityCamera.cx && vehicleCamera.cy == cityCamera.cy,
+          "vehicle scene retains city camera");
+    auto restaurantCamera = pc2fix::SceneCameraBase(layout, 4);
+    check(restaurantCamera.cx == 596 && restaurantCamera.cy == 551,
+          "restaurant world retains authored camera despite shared canvas type");
+    check(!pc2fix::NativeCityScene(0) && !pc2fix::NativeCityScene(-1) && !pc2fix::NativeCityScene(5) &&
+              !pc2fix::NativeCityScene(29),
+          "menus and unknown scenes do not expand world canvases");
+    auto menuCamera = pc2fix::SceneCameraBase(layout, 5);
+    auto restoredCamera = pc2fix::SceneCameraBase(layout, 1);
+    check(menuCamera.cx == 596 && menuCamera.cy == 551 && restoredCamera.cx == 1716 &&
+              restoredCamera.cy == 1031,
+          "city camera is restored after a legacy view transition");
     return failures ? 1 : 0;
 }

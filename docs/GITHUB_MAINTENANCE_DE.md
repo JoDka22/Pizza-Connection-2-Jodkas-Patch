@@ -14,7 +14,7 @@ fuer Administratoren. Es wird keine
 fremde Review-Freigabe erzwungen, die einen allein gepflegten Fork blockiert.
 
 GitHub Actions baut Release und Debug mit VS2022/v143 x86. Anschliessend laufen
-23 Layout-, 11 Darstellungs- und sieben Kamerapruefungen sowie die Abweisung
+29 Layout-, 11 Darstellungs- und sieben Kamerapruefungen sowie die Abweisung
 unbekannter Hosts anhand der echten Widescreen-Implementierung. Der identische
 Ablauf ist lokal mit `cmd /d /c tools\ci-windows.cmd` ausfuehrbar.
 
