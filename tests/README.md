@@ -53,3 +53,15 @@ rejection and actual RGB565 GDI transfer using a 1920-wide source stride with on
 600 authored rows. First/last row and letterbox pixel checks guard against incorrect
 DIB cropping. They do not test surface loss, game timing or every UI view. See
 [local runtime observations](../docs/PRESENTATION_DE.md).
+
+## Camera bounds tests
+
+```bat
+cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\camera_bounds_tests.cpp /Foout\camera_bounds_tests.obj /Feout\camera_bounds_tests.exe
+out\camera_bounds_tests.exe
+```
+
+Seven contract checks cover unchanged normal requests, anchoring an oversized view
+inside the original renderer range, original inverted intervals and boundaries.
+They do not exercise actual compressed game sprites. See
+[camera analysis and rejected centering experiment](../docs/CAMERA_BOUNDS_DE.md).
