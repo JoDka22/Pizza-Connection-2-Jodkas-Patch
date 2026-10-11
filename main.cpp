@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <MinHook.h>
 #include "main.h"
 #pragma comment(lib, "bcrypt.lib")
@@ -52,9 +53,31 @@ bool KnownFile(const wchar_t* path)
     CloseHandle(file);
     return known;
 }
+bool ReadableRange(const void* pointer, SIZE_T length)
+{
+    auto address = reinterpret_cast<ULONG_PTR>(pointer);
+    if (!address || length > (std::numeric_limits<ULONG_PTR>::max)() - address) return false;
+    const auto end = address + length;
+    while (address < end) {
+        MEMORY_BASIC_INFORMATION region{};
+        if (!VirtualQuery(reinterpret_cast<const void*>(address), &region, sizeof(region)) ||
+            region.State != MEM_COMMIT || (region.Protect & (PAGE_GUARD | PAGE_NOACCESS))) return false;
+        const auto access = region.Protect & 0xff;
+        if (access != PAGE_READONLY && access != PAGE_READWRITE && access != PAGE_WRITECOPY &&
+            access != PAGE_EXECUTE_READ && access != PAGE_EXECUTE_READWRITE && access != PAGE_EXECUTE_WRITECOPY)
+            return false;
+        const auto start = reinterpret_cast<ULONG_PTR>(region.BaseAddress);
+        if (region.RegionSize > (std::numeric_limits<ULONG_PTR>::max)() - start) return false;
+        const auto next = start + region.RegionSize;
+        if (next <= address) return false;
+        address = next;
+    }
+    return true;
+}
 bool KnownImage(const BYTE* base)
 {
     // This executable has stripped relocations. Reject any other layout or modified code.
+    if (!ReadableRange(base, 0x1000)) return false;
     auto dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
     if (dos->e_magic != IMAGE_DOS_SIGNATURE || dos->e_lfanew < 0 || dos->e_lfanew > 0x800) return false;
     auto nt = reinterpret_cast<const IMAGE_NT_HEADERS32*>(base + dos->e_lfanew);
@@ -67,7 +90,9 @@ bool KnownImage(const BYTE* base)
     auto section = IMAGE_FIRST_SECTION(nt);
     if (std::memcmp(section->Name, ".text\0\0\0", 8) || section->VirtualAddress != 0x1000 ||
         section->Misc.VirtualSize != 0x15aabc || !(section->Characteristics & IMAGE_SCN_MEM_EXECUTE)) return false;
-    return DigestMatches(base + section->VirtualAddress, section->Misc.VirtualSize, textDigest);
+    const auto code = base + section->VirtualAddress;
+    return ReadableRange(code, section->Misc.VirtualSize) &&
+        DigestMatches(code, section->Misc.VirtualSize, textDigest);
 }
 bool KnownExecutable()
 {
