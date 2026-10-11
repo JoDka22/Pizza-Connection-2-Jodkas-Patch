@@ -10,7 +10,13 @@ root bounds, world buffers and city UI geometry are integrated. Original UI pixe
 retain their size; the sidebar moves right and the status bar moves down. The feature
 is disabled by default and intended for a separate test installation.
 
-This branch recognises one analysed German GOG executable using full-file and loaded-code SHA-256 checks. Unknown or modified executables receive forwarding only. Original simulation, frame timers, intro and focus handling are retained. Native city widescreen has been exercised locally; complete UI, windowed mode and Windows 10/11 compatibility across drivers remain unverified.
+The optional [Full-HD presenter](docs/PRESENTATION_DE.md) adds a resizable framed
+window or borderless fullscreen without changing the desktop display mode. City
+rendering stays 1920x1080; other views retain their authored 800x600 layout and are
+enlarged proportionally, centred with black bars. Mouse coordinates use the inverse
+output transform. This is opt-in and restricted to 1920x1080.
+
+This branch recognises one analysed German GOG executable using full-file and loaded-code SHA-256 checks. Unknown or modified executables receive forwarding only. No simulation or frame timer memory patches are applied. Local gameplay observations are documented separately from compile/tests; complete UI, performance and Windows 10/11 compatibility across drivers remain unverified.
 
 The Bink proxy preserves the 83 exports and ordinals of the analysed original DLL. Initialisation occurs once on BinkSetSoundSystem, outside DllMain. A prepared window sizing adapter calculates an 800x600 client area using Windows APIs, tested in a hidden window. It is not installed as a hook yet: Bink initialisation cannot prove that the window thread has not started. `-windowed` is therefore currently refused and logged. This deliberately narrows the original patch to a safe foundation until a synchronised early bootstrap is available.
 

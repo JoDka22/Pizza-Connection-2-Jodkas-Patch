@@ -78,7 +78,8 @@ Height=1080
 `Widescreen=0` und `RenderProbe=0` belassen den Originalmodus. `RenderProbe=1`
 bei deaktiviertem Widescreen ist weiterhin die frühere Surface-only-Diagnose.
 Konfiguration erfordert Neustart. Wertebereich: 800..4096 / 600..2160; daraus folgt
-keine Zusicherung unterstützter Monitor-Modi. Fenstermodus wird weiterhin abgelehnt.
+keine Zusicherung unterstützter Monitor-Modi. Der native Backend unterstützt keinen
+Fenstermodus; der neue optionale [Full-HD-Presenter](PRESENTATION_DE.md) ergänzt ihn.
 Rückbau: hinzugefügte DLL/INI aus der Testkopie entfernen. Originalinstallation,
 System-DLLs und ursprüngliche Spielstände nicht überschreiben.
 
@@ -121,13 +122,15 @@ wide: world allocator completed 3432x2062 (viewport 1716x1031)
 
 ## Bekannte Grenzen und nächste Tests
 
-- Nicht-Stadtansichten bleiben 800x600 links oben; eigene Zentrierung/Layout fehlt.
+- Im nativen Backend bleiben Nicht-Stadtansichten 800x600 links oben. Der optionale
+  [Presenter](PRESENTATION_DE.md) zentriert und vergrößert sie proportional.
 - Bei weitem Zoom/kleinen Karten können außerhalb der tatsächlichen Stadtgrenze
   schwarze Randflächen auftreten. Kamera-/Minimap-Randbegrenzung weiter prüfen.
 - Rahmenfüllung ist gekachelt; mögliche sichtbare Wiederholungen sind kein Stretching.
 - Randscrollen, alle vier Kameraränder, Fahrzeug-Picking und alle UI-Tabs noch nicht
   systematisch geprüft. Beobachtete Gebäudeklicks ersetzen keine vollständige Picking-Matrix.
-- 1440p ist nur geometrisch geprüft; kein Spieltest. Fenstermodus/DPI/Multimonitor fehlen.
+- 1440p ist nur geometrisch geprüft; kein Spieltest. Weiterentwicklung konzentriert
+  sich auf Full HD. Neue Fenstermodustests siehe Presenter-Bericht; DPI/Multimonitor fehlen.
 - Kein SurfaceLost-/Treiberfehler-Injektionstest, Langzeittest oder Windows-10/11-Matrix.
 - Kein FPS-/Ladezeitgewinn behauptet; pro-Frame-Geometrieprüfung muss bei Bedarf profiliert werden.
 - Speichern/Laden mit komplexen bestehenden Städten und verschiedenen Kampagnen weiter prüfen.
