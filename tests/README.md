@@ -48,7 +48,8 @@ cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\presentation_tests.cpp /Foout\pres
 out\presentation_tests.exe
 ```
 
-The 11 checks cover aspect-preserving output, inverse mouse coordinates, bar/edge
+The 15 checks cover restoring minimized normal/maximized focus snapshots,
+aspect-preserving output, inverse mouse coordinates, bar/edge
 rejection and actual RGB565 GDI transfer using a 1920-wide source stride with only
 600 authored rows. First/last row and letterbox pixel checks guard against incorrect
 DIB cropping. They do not test surface loss, game timing or every UI view. See

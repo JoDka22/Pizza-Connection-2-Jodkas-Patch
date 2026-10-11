@@ -22,6 +22,9 @@ rendering stays 1920x1080; menu, recipe and statistics views retain their author
 enlarged proportionally, centred with black bars. Mouse coordinates use the inverse
 output transform. This is opt-in and restricted to 1920x1080.
 
+See [minimize/focus restoration regression](docs/WINDOW_FOCUS_FIX_DE.md) for
+the correction that prevents restoring an activated window to its minimized state.
+
 The [camera bounds follow-up](docs/CAMERA_BOUNDS_DE.md) anchors oversized views
 inside the original renderer's safe range and records remaining map-edge limits.
 
