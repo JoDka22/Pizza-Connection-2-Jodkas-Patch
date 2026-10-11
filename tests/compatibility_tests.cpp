@@ -14,6 +14,7 @@ int main()
     check(DigestMatches(abc, 3, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"), "SHA-256 known vector");
     check(!DigestMatches(abc, 3, fileDigest), "SHA-256 mismatch rejected");
     check(!KnownExecutable(), "unknown host rejected before fixed address reads");
+    check(!KnownImage(nullptr), "null image rejected without dereference");
     const wchar_t* game = L"..\\pizza  connection 2\\Pizza Connection 2\\fastfood2.exe";
     check(KnownFile(game), "local GOG file fingerprint accepted (read only)");
     HANDLE file = CreateFileW(game, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
@@ -23,6 +24,14 @@ int main()
     check(image && KnownImage(image), "GOG image layout and code fingerprint accepted without executing game");
     if (image) {
         DWORD protection = 0;
+        bool protectedPage = VirtualProtect(image + 0x1000, 0x1000, PAGE_NOACCESS, &protection) != FALSE;
+        check(protectedPage, "test code page made inaccessible privately");
+        if (protectedPage) {
+            check(!KnownImage(image), "inaccessible loaded code rejected without crashing");
+            DWORD discarded = 0;
+            check(VirtualProtect(image + 0x1000, 0x1000, protection, &discarded) != FALSE,
+                "test page protection restored");
+        }
         bool writable = VirtualProtect(image + 0x1000, 1, PAGE_WRITECOPY, &protection) != FALSE;
         check(writable, "test mapping supports private copy for corruption test");
         if (writable) {
