@@ -84,6 +84,13 @@ teardown. It compiles the actual proxy against synthetic DirectDraw objects to
 verify owner/non-owner forwarding and teardown. Included in `tools/ci-windows.cmd`.
 See [deep code review](../docs/DEEP_REVIEW_LIFETIME_DE.md) for findings and limits.
 
+## Frame/input transition tests
+
+`frame_pipeline_tests.cpp` adds twelve transition regressions for independent
+back/front/published geometry, scene generations, failed publication, native and
+legacy input, equal room rectangles and client resize. It is included in the CI
+script. See [frame/input synchronization](../docs/FRAME_INPUT_SYNC_DE.md).
+
 ## Camera bounds tests
 
 ```bat

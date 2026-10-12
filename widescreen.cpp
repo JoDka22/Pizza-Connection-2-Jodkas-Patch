@@ -129,6 +129,8 @@ int __fastcall Placement(void *object, void *, int x, int y, int commit, int mod
 }
 void __fastcall Scene(void *object, void *, void *window)
 {
+    if (active)
+        BeginPresentationScene();
     if (active && Writable(object, 0x2da4))
     {
         int scene = Field<int>(object, 0x290);
@@ -240,6 +242,7 @@ bool HasWorldCanvas(void *window)
 }
 void __fastcall Frame(void *object, void *, void *surface)
 {
+    const auto generation = PresentationSceneGeneration();
     bool worldFrame = false;
     // 0x523fe0 iterates the inline window pointer array at +0x14,
     // count +0x23c, and checks visibility at window +0x4c.
@@ -259,6 +262,7 @@ void __fastcall Frame(void *object, void *, void *surface)
     }
     nativeWorldFrame = worldFrame;
     frameOriginal(object, surface);
+    CapturePresentationFrame(generation, worldFrame);
 }
 void __fastcall Sprite(void *object, void *, void *surface, int x, int y)
 {

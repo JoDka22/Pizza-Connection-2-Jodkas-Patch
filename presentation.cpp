@@ -5,6 +5,7 @@
 #include "presentation_buffer.h"
 #include "performance_probe.h"
 #include "presentation_surfaces.h"
+#include "frame_pipeline.h"
 #include <MinHook.h>
 #include <cstdio>
 namespace
@@ -26,9 +27,7 @@ ClipFn clipOriginal = nullptr;
 bool reported = false;
 WINDOWPLACEMENT focusPlacement{sizeof(WINDOWPLACEMENT)};
 bool haveFocusPlacement = false;
-pc2fix::RestaurantView restaurantView{};
-RECT restaurantArtwork{};
-bool restaurantPresented = false;
+pc2fix::FramePipeline framePipeline;
 pc2fix::PresentationBuffer outputBuffer;
 bool painting = false;
 bool performanceProbe = false;
@@ -66,16 +65,10 @@ void RecordPerformance(pc2fix::FrameSample sample, LONGLONG start)
     performanceStats = {};
     performanceWindow = end;
 }
-RECT View(HWND window)
-{
-    RECT client{};
-    GetClientRect(window, &client);
-    return pc2fix::FitView(client.right, client.bottom, IsNativeWorldFrame() ? layout.width : 800,
-                           IsNativeWorldFrame() ? layout.height : 600);
-}
 void Paint(HDC paintDC = nullptr, pc2fix::FrameSample *sample = nullptr)
 {
-    if (painting || !front || !IsWindow(gameWindow) || IsIconic(gameWindow))
+    const auto image = framePipeline.Front();
+    if (painting || !front || !image.valid || !IsWindow(gameWindow) || IsIconic(gameWindow))
         return;
     painting = true;
     DDSURFACEDESC data{};
@@ -89,17 +82,14 @@ void Paint(HDC paintDC = nullptr, pc2fix::FrameSample *sample = nullptr)
         if (data.lPitch >= layout.width * 2 && data.lPitch % 4 == 0 &&
             data.ddpfPixelFormat.dwRGBBitCount == 16)
         {
-            RECT client{}, artwork{};
+            RECT client{};
             GetClientRect(gameWindow, &client);
-            pc2fix::RestaurantView interior{};
             phaseStart = sample ? Stamp() : 0;
-            bool wantInterior =
-                RestaurantArtwork(artwork) && pc2fix::MakeRestaurantView(layout, artwork, interior);
             bool enlarged = false;
-            const bool composed = outputBuffer.Compose(data.lpSurface, data.lPitch, layout, IsNativeWorldFrame(),
+            const bool composed = outputBuffer.Compose(data.lpSurface, data.lPitch, layout, image.native,
                                                        data.ddpfPixelFormat.dwRBitMask, data.ddpfPixelFormat.dwGBitMask,
                                                        data.ddpfPixelFormat.dwBBitMask, client,
-                                                       wantInterior ? &interior : nullptr, enlarged);
+                                                       image.interior ? &image.room : nullptr, enlarged);
             if (sample)
                 sample->compose = Elapsed(phaseStart, Stamp());
             if (composed)
@@ -116,12 +106,7 @@ void Paint(HDC paintDC = nullptr, pc2fix::FrameSample *sample = nullptr)
                 }
                 if (presented)
                 {
-                    restaurantPresented = enlarged;
-                    if (enlarged)
-                    {
-                        restaurantView = interior;
-                        restaurantArtwork = artwork;
-                    }
+                    framePipeline.Published(image, {client.right, client.bottom}, enlarged);
                     static bool logged = false;
                     if (!logged)
                     {
@@ -182,13 +167,17 @@ void __fastcall Flip(void *object, void *)
         return;
     auto performanceStart = performanceProbe ? Stamp() : 0;
     pc2fix::FrameSample sample{};
+    const auto image = framePipeline.Back();
     auto result = front->Blt(nullptr, back, nullptr, DDBLT_WAIT, nullptr);
     if (result == DDERR_SURFACELOST && SUCCEEDED(front->Restore()) && SUCCEEDED(back->Restore()))
         result = front->Blt(nullptr, back, nullptr, DDBLT_WAIT, nullptr);
     if (performanceProbe)
         sample.copy = Elapsed(performanceStart, Stamp());
     if (SUCCEEDED(result))
+    {
+        framePipeline.Copied(image);
         Paint(nullptr, performanceProbe ? &sample : nullptr);
+    }
     else if (!reported)
     {
         char line[96]{};
@@ -237,19 +226,12 @@ LRESULT __fastcall Message(void *object, void *, HWND window, UINT msg, WPARAM w
         if (screen)
             ScreenToClient(window, &point);
         POINT mapped{};
-        if (!pc2fix::ViewPoint(View(window), IsNativeWorldFrame() ? layout.width : 800,
-                               IsNativeWorldFrame() ? layout.height : 600, point, mapped))
+        RECT client{}, current{};
+        GetClientRect(window, &client);
+        const bool geometryMatches = !framePipeline.Enlarged() ||
+            (RestaurantArtwork(current) && framePipeline.ArtworkMatches(current));
+        if (!framePipeline.Point(layout, {client.right, client.bottom}, geometryMatches, point, mapped))
             mapped = {-1, -1};
-        else if (restaurantPresented)
-        {
-            RECT current{};
-            POINT interior{};
-            const bool geometryMatches = RestaurantArtwork(current) && EqualRect(&current, &restaurantArtwork);
-            if (pc2fix::RestaurantFramePoint(restaurantView, geometryMatches, mapped, interior))
-                mapped = interior;
-            else
-                mapped = {-1, -1}; // Wait until the changed room has been presented with a matching map.
-        }
         if (screen)
             ClientToScreen(window, &mapped);
         lp = MAKELPARAM(static_cast<WORD>(mapped.x), static_cast<WORD>(mapped.y));
@@ -275,6 +257,23 @@ void ConfigurePresentation(const pc2fix::DisplayLayout &target, bool requested, 
 bool PresentationEnabled()
 {
     return enabled;
+}
+void BeginPresentationScene()
+{
+    if (enabled)
+        framePipeline.BeginScene();
+}
+uint64_t PresentationSceneGeneration()
+{
+    return framePipeline.Generation();
+}
+void CapturePresentationFrame(uint64_t generation, bool native)
+{
+    if (!enabled)
+        return;
+    RECT artwork{};
+    const bool interior = native && RestaurantArtwork(artwork);
+    framePipeline.Rendered(generation, native, layout, interior ? &artwork : nullptr);
 }
 void ConfigurePerformanceProbe(bool requested)
 {
@@ -377,7 +376,7 @@ HRESULT CreatePresentationSurface(IDirectDraw *draw, IDirectDrawSurface **output
 void ReleasePresentation()
 {
     ConfigurePerformanceProbe(false);
-    restaurantPresented = false;
+    framePipeline.Reset();
     outputBuffer.Reset();
     gameWindow = nullptr;
     surfaces.Reset();

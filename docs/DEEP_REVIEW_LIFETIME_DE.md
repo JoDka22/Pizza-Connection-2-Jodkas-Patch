@@ -46,6 +46,8 @@ sind getrennt von den synthetischen Tests zu beurteilen.
   nicht zwingend denselben Raum. WM_PAINT liest aktuelle Szenengeometrie fuer den
   Frontpuffer, der noch aus einer vorherigen Szene stammen kann. Ein belastbarer
   Fix muss Render-/Frontpuffer-Metadaten und Szenengeneration zusammenhalten.
+  Die Folgeaenderung [Bild/Eingabe-Synchronisation](FRAME_INPUT_SYNC_DE.md)
+  implementiert diese Zuordnung und prueft sie mit eigenen Regressionen.
 - Nach echter Surface-Wiederherstellung sind Bildinhalte nicht automatisch gueltig.
   Der vorhandene Restore/Blt-Retry ist kein Beweis fuer vollstaendigen Engine-Neuaufbau.
   Dafuer sind gezielte Verlusttests und ein verifizierter Redraw-Pfad erforderlich.
