@@ -57,6 +57,7 @@ BOOL CALLBACK Initialise(PINIT_ONCE, PVOID, PVOID*)
     bool presentation = windowed || GetPrivateProfileIntW(L"display", L"Presentation", 0, path) == 1;
     // This backend is deliberately restricted to the requested/tested Full-HD mode.
     ConfigurePresentation(layout, presentation && widescreen && probe && width == 1920 && height == 1080, windowed);
+    ConfigurePerformanceProbe(PresentationEnabled() && GetPrivateProfileIntW(L"display", L"PerformanceProbe", 0, path) == 1);
     Log(probe ? (widescreen ? "ddraw: opt-in native widescreen layout" :
         "ddraw: opt-in render probe; camera/UI unchanged") : "ddraw: diagnostics only; original resolution retained");
     return TRUE;

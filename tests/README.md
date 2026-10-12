@@ -63,6 +63,13 @@ restaurant compositor, including smaller and tall windows. Run
 Timing results are informational; CI never requires a speedup.
 See [composition benchmark and limits](../docs/RESTAURANT_PERFORMANCE_DE.md).
 
+## Optional frontend timing probe
+
+`performance_probe_tests.cpp` adds five checks for counter-frequency conversion,
+invalid intervals, aggregate averages/peaks, incomplete frames and report reset.
+It is included in `tools/ci-windows.cmd`. The default-disabled runtime probe and
+CPU/GPU measurement limits are documented in [frame diagnosis](../docs/FRAME_SPIKES_DE.md).
+
 ## Camera bounds tests
 
 ```bat
