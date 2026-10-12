@@ -3,6 +3,10 @@
 #include "presentation.h"
 #include "main.h"
 #include "presentation_buffer.h"
+#include "performance_probe.h"
+#include "presentation_surfaces.h"
+#include "frame_pipeline.h"
+#include "frame_limiter.h"
 #include <MinHook.h>
 #include <cstdio>
 namespace
@@ -10,8 +14,9 @@ namespace
 pc2fix::DisplayLayout layout{};
 bool enabled = false, framed = false;
 HWND gameWindow = nullptr;
-IDirectDrawSurface *front = nullptr;
-IDirectDrawSurface *back = nullptr;
+pc2fix::PresentationSurfaces<IDirectDrawSurface> surfaces;
+auto &front = surfaces.front;
+auto &back = surfaces.back;
 using AttachedFn = HRESULT(WINAPI *)(IDirectDrawSurface *, DDSCAPS *, IDirectDrawSurface **);
 AttachedFn attachedOriginal = nullptr;
 using FlipFn = void(__thiscall *)(void *);
@@ -23,54 +28,87 @@ ClipFn clipOriginal = nullptr;
 bool reported = false;
 WINDOWPLACEMENT focusPlacement{sizeof(WINDOWPLACEMENT)};
 bool haveFocusPlacement = false;
-pc2fix::RestaurantView restaurantView{};
-RECT restaurantArtwork{};
-bool restaurantPresented = false;
+pc2fix::FramePipeline framePipeline;
 pc2fix::PresentationBuffer outputBuffer;
+pc2fix::FrameLimiter frameLimiter;
 bool painting = false;
-RECT View(HWND window)
+bool performanceProbe = false;
+LONGLONG performanceFrequency = 0, performanceWindow = 0, previousFlip = 0;
+pc2fix::FrameStats performanceStats{};
+LONGLONG Stamp()
 {
-    RECT client{};
-    GetClientRect(window, &client);
-    return pc2fix::FitView(client.right, client.bottom, IsNativeWorldFrame() ? layout.width : 800,
-                           IsNativeWorldFrame() ? layout.height : 600);
+    LARGE_INTEGER counter{};
+    QueryPerformanceCounter(&counter);
+    return counter.QuadPart;
 }
-void Paint(HDC paintDC = nullptr)
+double Elapsed(LONGLONG start, LONGLONG end)
 {
-    if (painting || !front || !IsWindow(gameWindow) || IsIconic(gameWindow))
+    return pc2fix::TickMilliseconds(start, end, performanceFrequency);
+}
+void RecordPerformance(pc2fix::FrameSample sample, LONGLONG start)
+{
+    auto end = Stamp();
+    if (previousFlip)
+        performanceStats.gap.Add(Elapsed(previousFlip, start));
+    previousFlip = start;
+    sample.total = Elapsed(start, end);
+    performanceStats.Add(sample);
+    if (Elapsed(performanceWindow, end) < 5000)
+        return;
+    auto &s = performanceStats;
+    char line[512]{};
+    sprintf_s(line,
+              "perf: frames=%u completed=%u over50ms=%u avg/max(ms) gap=%.2f/%.2f copy=%.2f/%.2f "
+              "lock=%.2f/%.2f compose=%.2f/%.2f publish=%.2f/%.2f total=%.2f/%.2f",
+              s.frames, s.completed, s.over50ms, s.gap.Average(), s.gap.peak, s.copy.Average(), s.copy.peak,
+              s.lock.Average(), s.lock.peak, s.compose.Average(), s.compose.peak,
+              s.publish.Average(), s.publish.peak, s.total.Average(), s.total.peak);
+    Log(line);
+    performanceStats = {};
+    performanceWindow = end;
+}
+void Paint(HDC paintDC = nullptr, pc2fix::FrameSample *sample = nullptr)
+{
+    const auto image = framePipeline.Front();
+    if (painting || !front || !image.valid || !IsWindow(gameWindow) || IsIconic(gameWindow))
         return;
     painting = true;
     DDSURFACEDESC data{};
     data.dwSize = sizeof(data);
+    auto phaseStart = sample ? Stamp() : 0;
     auto result = front->Lock(nullptr, &data, DDLOCK_WAIT | DDLOCK_READONLY, nullptr);
+    if (sample)
+        sample->lock = Elapsed(phaseStart, Stamp());
     if (SUCCEEDED(result))
     {
         if (data.lPitch >= layout.width * 2 && data.lPitch % 4 == 0 &&
             data.ddpfPixelFormat.dwRGBBitCount == 16)
         {
-            RECT client{}, artwork{};
+            RECT client{};
             GetClientRect(gameWindow, &client);
-            pc2fix::RestaurantView interior{};
-            bool wantInterior =
-                RestaurantArtwork(artwork) && pc2fix::MakeRestaurantView(layout, artwork, interior);
+            phaseStart = sample ? Stamp() : 0;
             bool enlarged = false;
-            if (outputBuffer.Compose(data.lpSurface, data.lPitch, layout, IsNativeWorldFrame(),
-                                     data.ddpfPixelFormat.dwRBitMask, data.ddpfPixelFormat.dwGBitMask,
-                                     data.ddpfPixelFormat.dwBBitMask, client,
-                                     wantInterior ? &interior : nullptr, enlarged))
+            const bool composed = outputBuffer.Compose(data.lpSurface, data.lPitch, layout, image.native,
+                                                       data.ddpfPixelFormat.dwRBitMask, data.ddpfPixelFormat.dwGBitMask,
+                                                       data.ddpfPixelFormat.dwBBitMask, client,
+                                                       image.interior ? &image.room : nullptr, enlarged);
+            if (sample)
+                sample->compose = Elapsed(phaseStart, Stamp());
+            if (composed)
             {
+                phaseStart = sample ? Stamp() : 0;
                 auto dc = paintDC ? paintDC : GetDC(gameWindow);
                 bool presented = dc && outputBuffer.Present(dc);
                 if (dc && !paintDC)
                     ReleaseDC(gameWindow, dc);
+                if (sample)
+                {
+                    sample->publish = Elapsed(phaseStart, Stamp());
+                    sample->completed = presented;
+                }
                 if (presented)
                 {
-                    restaurantPresented = enlarged;
-                    if (enlarged)
-                    {
-                        restaurantView = interior;
-                        restaurantArtwork = artwork;
-                    }
+                    framePipeline.Published(image, {client.right, client.bottom}, enlarged);
                     static bool logged = false;
                     if (!logged)
                     {
@@ -129,19 +167,37 @@ void __fastcall Flip(void *object, void *)
     // Defer a nested flip rather than blitting into that locked surface.
     if (painting)
         return;
+    if (gameWindow && !IsIconic(gameWindow))
+        frameLimiter.Wait();
+    else
+        frameLimiter.Reset();
+    auto performanceStart = performanceProbe ? Stamp() : 0;
+    pc2fix::FrameSample sample{};
+    const auto image = framePipeline.Back();
     auto result = front->Blt(nullptr, back, nullptr, DDBLT_WAIT, nullptr);
     if (result == DDERR_SURFACELOST && SUCCEEDED(front->Restore()) && SUCCEEDED(back->Restore()))
         result = front->Blt(nullptr, back, nullptr, DDBLT_WAIT, nullptr);
+    if (performanceProbe)
+        sample.copy = Elapsed(performanceStart, Stamp());
     if (SUCCEEDED(result))
-        Paint();
-    else if (!reported)
     {
-        char line[96]{};
-        sprintf_s(line, "present: back-to-front copy failed HRESULT=%08lx; frame skipped",
-                  static_cast<DWORD>(result));
-        Log(line);
-        reported = true;
+        framePipeline.Copied(image);
+        Paint(nullptr, performanceProbe ? &sample : nullptr);
     }
+    else
+    {
+        framePipeline.CopyFailed();
+        if (!reported)
+        {
+            char line[96]{};
+            sprintf_s(line, "present: back-to-front copy failed HRESULT=%08lx; frame skipped",
+                      static_cast<DWORD>(result));
+            Log(line);
+            reported = true;
+        }
+    }
+    if (performanceProbe)
+        RecordPerformance(sample, performanceStart);
 }
 BOOL WINAPI Clip(const RECT *area)
 {
@@ -180,21 +236,12 @@ LRESULT __fastcall Message(void *object, void *, HWND window, UINT msg, WPARAM w
         if (screen)
             ScreenToClient(window, &point);
         POINT mapped{};
-        if (!pc2fix::ViewPoint(View(window), IsNativeWorldFrame() ? layout.width : 800,
-                               IsNativeWorldFrame() ? layout.height : 600, point, mapped))
+        RECT client{}, current{};
+        GetClientRect(window, &client);
+        const bool geometryMatches = !framePipeline.Enlarged() ||
+            (RestaurantArtwork(current) && framePipeline.ArtworkMatches(current));
+        if (!framePipeline.Point(layout, {client.right, client.bottom}, geometryMatches, point, mapped))
             mapped = {-1, -1};
-        else if (restaurantPresented)
-        {
-            RECT current{};
-            if (RestaurantArtwork(current) && EqualRect(&current, &restaurantArtwork))
-            {
-                POINT interior{};
-                if (pc2fix::RestaurantPoint(restaurantView, mapped, interior))
-                    mapped = interior;
-                else
-                    mapped = {-1, -1};
-            }
-        }
         if (screen)
             ClientToScreen(window, &mapped);
         lp = MAKELPARAM(static_cast<WORD>(mapped.x), static_cast<WORD>(mapped.y));
@@ -220,6 +267,45 @@ void ConfigurePresentation(const pc2fix::DisplayLayout &target, bool requested, 
 bool PresentationEnabled()
 {
     return enabled;
+}
+void BeginPresentationScene()
+{
+    if (enabled)
+        framePipeline.BeginScene();
+}
+uint64_t PresentationSceneGeneration()
+{
+    return framePipeline.Generation();
+}
+void CapturePresentationFrame(uint64_t generation, bool native)
+{
+    if (!enabled)
+        return;
+    RECT artwork{};
+    const bool interior = native && RestaurantArtwork(artwork);
+    framePipeline.Rendered(generation, native, layout, interior ? &artwork : nullptr);
+}
+void ConfigurePerformanceProbe(bool requested)
+{
+    LARGE_INTEGER frequency{};
+    performanceProbe = requested && QueryPerformanceFrequency(&frequency) && frequency.QuadPart > 0;
+    performanceFrequency = performanceProbe ? frequency.QuadPart : 0;
+    performanceStats = {};
+    previousFlip = 0;
+    performanceWindow = performanceProbe ? Stamp() : 0;
+    if (performanceProbe)
+        Log("perf: optional frontend timing probe active; reports every five seconds");
+}
+void ConfigureFrameLimiter(int targetFPS)
+{
+    if (!frameLimiter.Configure(enabled ? targetFPS : 0))
+        Log("present: invalid TargetFPS; limiter disabled (valid: 0 or 1..1000)");
+    else if (enabled)
+    {
+        char line[80]{};
+        sprintf_s(line, "present: TargetFPS=%d (output ceiling; 0 means uncapped)", targetFPS);
+        Log(line);
+    }
 }
 bool InstallPresentationHooks()
 {
@@ -290,31 +376,30 @@ HRESULT CreatePresentationSurface(IDirectDraw *draw, IDirectDrawSurface **output
     {
         auto table = *reinterpret_cast<void ***>(front);
         auto target = table[12]; // IDirectDrawSurface::GetAttachedSurface, vtable +0x30.
-        if (MH_CreateHook(target, &Attached, reinterpret_cast<void **>(&attachedOriginal)) != MH_OK ||
-            MH_EnableHook(target) != MH_OK)
+        if (MH_CreateHook(target, &Attached, reinterpret_cast<void **>(&attachedOriginal)) != MH_OK)
             result = E_FAIL;
+        else if (MH_EnableHook(target) != MH_OK)
+        {
+            MH_RemoveHook(target); // Do not retain a half-installed vtable detour.
+            attachedOriginal = nullptr;
+            result = E_FAIL;
+        }
     }
     if (FAILED(result))
     {
-        if (front)
-            front->Release();
-        if (back)
-            back->Release();
-        front = nullptr;
-        back = nullptr;
+        surfaces.Reset();
         return result;
     }
-    *output = front; // Game owns front; presenter holds back until DirectDraw teardown.
+    *output = surfaces.FrontForGame(); // Game and presenter hold independent COM references.
     Log("present: two 1920x1080 RGB565 system-memory buffers allocated");
     return DD_OK;
 }
 void ReleasePresentation()
 {
-    restaurantPresented = false;
+    frameLimiter.Configure(0);
+    ConfigurePerformanceProbe(false);
+    framePipeline.Reset();
     outputBuffer.Reset();
-    if (back)
-        back->Release();
-    back = nullptr;
-    front = nullptr;
     gameWindow = nullptr;
+    surfaces.Reset();
 }

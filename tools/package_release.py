@@ -30,8 +30,8 @@ def patch_dll(name):
 
 
 def package(version):
-    if not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+', version):
-        raise ValueError('Expected a version such as v0.1.0')
+    if not re.fullmatch(r'v[0-9]+\.[0-9]+(?:\.[0-9]+)?', version):
+        raise ValueError('Expected a version such as v1.0')
     state = subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True)
     if state.strip():
         raise ValueError('Commit tracked/untracked source changes before packaging')
@@ -39,7 +39,6 @@ def package(version):
     # Explicit input paths, never a recursive glob of a build/game directory.
     files = {
         'ddraw.dll': patch_dll('ddraw.dll'),
-        'optional/binkw32.dll': patch_dll('binkw32.dll'),
         'pc2fix.ini': (ROOT / 'pc2fix.ini.example').read_bytes(),
         'README.md': (ROOT / 'README.md').read_bytes(),
         'LICENSE': (ROOT / 'LICENSE').read_bytes(),
@@ -59,7 +58,7 @@ def package(version):
         'version': version, 'commit': commit, 'architecture': 'x86',
         'configuration': 'Release', 'files_sha256': hashes,
     }, indent=2) + '\n').encode()
-    destination = ROOT / 'out' / ('pc2fix-self-' + version + '-win-x86.zip')
+    destination = ROOT / 'out' / ('Pizza _Connection 2_Jodkas_Patch_' + version + '.zip')
     with zipfile.ZipFile(destination, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
         for name, data in sorted(files.items()):
             info = zipfile.ZipInfo(name, date_time=(2026, 1, 1, 0, 0, 0))
@@ -71,9 +70,7 @@ def package(version):
         for name, data in files.items():
             if archive.read(name) != data:
                 raise ValueError('Archive content mismatch: ' + name)
-    checksum = destination.with_suffix('.zip.sha256')
-    checksum.write_text(digest(destination.read_bytes()) + '  ' + destination.name + '\n', encoding='ascii')
-    print(json.dumps({'archive': str(destination), 'checksum': str(checksum),
+    print(json.dumps({'archive': str(destination),
                       'commit': commit, 'files': len(files), 'sha256': digest(destination.read_bytes())}))
 
 

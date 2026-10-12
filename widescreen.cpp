@@ -3,6 +3,7 @@
 #include "widescreen.h"
 #include "camera_bounds.h"
 #include "grid_corner.h"
+#include "restaurant_background.h"
 #include "main.h"
 #include "presentation.h"
 #include <MinHook.h>
@@ -21,6 +22,8 @@ DrawFn drawOriginal = nullptr;
 DrawFn frameOriginal = nullptr;
 bool nativeWorldFrame = false;
 SpriteFn spriteOriginal = nullptr;
+using PaletteSpriteFn = void(__thiscall *)(void *, void *, void *, int, int, int);
+PaletteSpriteFn paletteSpriteOriginal = nullptr;
 BuffersFn buffersOriginal = nullptr;
 using CameraFn = int(__thiscall *)(void *, int, int);
 CameraFn cameraOriginal = nullptr;
@@ -129,6 +132,8 @@ int __fastcall Placement(void *object, void *, int x, int y, int commit, int mod
 }
 void __fastcall Scene(void *object, void *, void *window)
 {
+    if (active)
+        BeginPresentationScene();
     if (active && Writable(object, 0x2da4))
     {
         int scene = Field<int>(object, 0x290);
@@ -240,6 +245,7 @@ bool HasWorldCanvas(void *window)
 }
 void __fastcall Frame(void *object, void *, void *surface)
 {
+    const auto generation = PresentationSceneGeneration();
     bool worldFrame = false;
     // 0x523fe0 iterates the inline window pointer array at +0x14,
     // count +0x23c, and checks visibility at window +0x4c.
@@ -259,6 +265,56 @@ void __fastcall Frame(void *object, void *, void *surface)
     }
     nativeWorldFrame = worldFrame;
     frameOriginal(object, surface);
+    CapturePresentationFrame(generation, worldFrame);
+}
+void __fastcall PaletteSprite(void *object, void *, void *surface, void *palette, int x, int y, int flags)
+{
+    // 0x4efc73 restores the room background before the original actor passes.
+    // Clearing the entire buffer would erase objects outside the dirty region.
+    auto scene = active ? *reinterpret_cast<void **>(0x57c670) : nullptr;
+    if (Writable(scene, 0x300) && Field<int>(scene, 0x290) == 4)
+    {
+        auto world = Field<void *>(scene, 0x2fc);
+        if (Writable(world, 0x10178) && Field<int>(world, 0xc) == 16 &&
+            !Field<void *>(world, 0x70) && Field<void *>(world, 0x74) == object &&
+            Field<void *>(world, 8) == surface && Writable(object, 0x3a) && Writable(surface, 0x74))
+        {
+            using SizeFn = void(__thiscall *)(void *, int *, int *);
+            int width = 0, height = 0, ox = 0, oy = 0;
+            reinterpret_cast<SizeFn>(0x53d090)(object, &width, &height);
+            reinterpret_cast<SizeFn>(0x53d100)(object, &ox, &oy);
+            const LONG bw = Field<WORD>(surface, 0x1a), bh = Field<WORD>(surface, 0x1c);
+            // Reject unexpected geometry before additions or touching pixel memory.
+            if (bw > 0 && bw <= 4096 && bh > 0 && bh <= 2160 &&
+                width > 0 && width <= 16384 && height > 0 && height <= 16384 &&
+                x >= -32768 && x <= 32767 && y >= -32768 && y <= 32767 &&
+                Field<int>(surface, 0x20) == bw * 3 &&
+                Field<void *>(surface, 0x28))
+            {
+                RECT artwork{x + ox, y + oy, x + ox + width, y + oy + height};
+                RECT dirty{Field<LONG>(surface, 4), Field<LONG>(surface, 0xc),
+                           Field<LONG>(surface, 8), Field<LONG>(surface, 0x10)};
+                auto margins = pc2fix::RestaurantBackgroundMargins(dirty, artwork, {0, 0, bw, bh});
+                static unsigned reported = 0;
+                if (reported++ < 2)
+                {
+                    char message[320]{};
+                    sprintf_s(message, "wide: restaurant restore buffer=%p pixels=%p size=%ldx%ld stride=%d dirty=%ld,%ld..%ld,%ld art=%ld,%ld..%ld,%ld margins=%u",
+                              surface, Field<void *>(surface, 0x28), bw, bh, Field<int>(surface, 0x20),
+                              dirty.left, dirty.top, dirty.right, dirty.bottom,
+                              artwork.left, artwork.top, artwork.right, artwork.bottom, margins.count);
+                    Log(message);
+                }
+                const int pitch = Field<int>(surface, 0x20);
+                const size_t bytes = size_t(pitch) * bh;
+                auto pixels = Field<BYTE *>(surface, 0x28);
+                const BYTE tag = static_cast<BYTE>(flags == -1 ? *reinterpret_cast<int *>(0x585518) : flags);
+                if (Writable(pixels, bytes))
+                    pc2fix::ClearRestaurantMargins(pixels, bytes, pitch, bw, bh, margins, tag);
+            }
+        }
+    }
+    paletteSpriteOriginal(object, surface, palette, x, y, flags);
 }
 void __fastcall Sprite(void *object, void *, void *surface, int x, int y)
 {
@@ -475,6 +531,8 @@ bool InstallWidescreen(const pc2fix::DisplayLayout &layout)
                       reinterpret_cast<void **>(&frameOriginal)) != MH_OK ||
         MH_CreateHook(reinterpret_cast<void *>(0x53d570), &Sprite,
                       reinterpret_cast<void **>(&spriteOriginal)) != MH_OK ||
+        MH_CreateHook(reinterpret_cast<void *>(0x53d600), &PaletteSprite,
+                      reinterpret_cast<void **>(&paletteSpriteOriginal)) != MH_OK ||
         MH_CreateHook(reinterpret_cast<void *>(0x4ea230), &Buffers,
                       reinterpret_cast<void **>(&buffersOriginal)) != MH_OK ||
         MH_CreateHook(reinterpret_cast<void *>(0x4ed440), &Camera,

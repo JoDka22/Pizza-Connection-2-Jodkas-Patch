@@ -48,7 +48,7 @@ cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\presentation_tests.cpp /Foout\pres
 out\presentation_tests.exe
 ```
 
-The 33 checks cover offscreen composition, resize/failure/resource handling, restaurant geometry/picking,
+The 36 checks cover stale room input, offscreen composition, resize/failure/resource handling, restaurant geometry/picking,
 restoring minimized normal/maximized focus snapshots,
 aspect-preserving output, inverse mouse coordinates, bar/edge
 rejection and actual RGB565 GDI transfer using a 1920-wide source stride with only
@@ -56,7 +56,56 @@ rejection and actual RGB565 GDI transfer using a 1920-wide source stride with on
 DIB cropping. They do not test surface loss, game timing or every UI view. See
 [local runtime observations](../docs/PRESENTATION_DE.md).
 
+The CI script also builds `presentation_benchmark.cpp` and runs `--verify-only`:
+three complete synthetic RGB image comparisons between the previous and clipped
+restaurant compositor, including smaller and tall windows. Run
+`out\presentation_benchmark.exe` without arguments for a local timing comparison.
+Timing results are informational; CI never requires a speedup.
+See [composition benchmark and limits](../docs/RESTAURANT_PERFORMANCE_DE.md).
+
+`rgb565_benchmark.cpp` compares the complete buffered RGB32 path with the previous
+RGB16 GDI output in 12 image cases: menus, city, restaurant and RGB555 fallback,
+at three window sizes. The source covers every RGB565 color and padded rows.
+Invalid conversion arguments are also checked. CI runs `--verify-only`; running
+the executable without arguments additionally reports three-round median timings.
+
+## Optional frontend timing probe
+
+`performance_probe_tests.cpp` adds five checks for counter-frequency conversion,
+invalid intervals, aggregate averages/peaks, incomplete frames and report reset.
+It is included in `tools/ci-windows.cmd`. The default-disabled runtime probe and
+CPU/GPU measurement limits are documented in [frame diagnosis](../docs/FRAME_SPIKES_DE.md).
+
+## DirectDraw lifetime and ownership tests
+
+`presentation_lifetime_tests.cpp` adds eleven regressions for independent game/
+presenter references, either release order, partial construction and reentrant
+teardown. It compiles the actual proxy against synthetic DirectDraw objects to
+verify owner/non-owner forwarding and teardown. Included in `tools/ci-windows.cmd`.
+See [deep code review](../docs/DEEP_REVIEW_LIFETIME_DE.md) for findings and limits.
+
+## Frame/input transition tests
+
+`frame_pipeline_tests.cpp` adds thirteen transition regressions for independent
+back/front/published geometry, scene generations, failed publication, native and
+legacy input, equal room rectangles, failed copies and client resize. It is included in the CI
+script. See [frame/input synchronization](../docs/FRAME_INPUT_SYNC_DE.md).
+
+## Restaurant sprite bounds tests
+
+`restaurant_background_tests.cpp` verifies the exact non-overlapping difference
+between the clipped dirty region and room bitmap, including empty/off-buffer
+rectangles and preservation of stationary and subsequently drawn actors.
+
+`restaurant_sprite_tests.cpp` adds 21 synthetic GDI/geometry checks for foreground
+pixels beyond the old artwork crop, stable room anchoring, inverse picking and
+UI clipping at three output sizes. See [restaurant sprite bounds](../docs/RESTAURANT_SPRITE_BOUNDS_DE.md).
+
 ## Camera bounds tests
+
+`frame_limiter_tests.cpp` checks 60/120/uncapped deadlines, invalid settings,
+activation reset, late frames without catch-up bursts and actual Windows timer
+waits across two 60 FPS intervals. It is included in the Windows CI script.
 
 ```bat
 cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\camera_bounds_tests.cpp /Foout\camera_bounds_tests.obj /Feout\camera_bounds_tests.exe

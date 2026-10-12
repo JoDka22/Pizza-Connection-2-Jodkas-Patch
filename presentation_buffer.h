@@ -1,6 +1,7 @@
 // MIT license; see LICENSE. Compose offscreen, publish only completed images.
 #pragma once
 #include "presentation_pixels.h"
+#include "rgb565_buffer.h"
 namespace pc2fix
 {
 class PresentationBuffer
@@ -10,6 +11,7 @@ class PresentationBuffer
     HGDIOBJ previous = nullptr;
     int width = 0, height = 0;
     bool ready = false;
+    Rgb565Buffer rgb565;
     bool Ensure(int w, int h)
     {
         if (w <= 0 || h <= 0 || w > 4096 || h > 2160)
@@ -52,6 +54,7 @@ class PresentationBuffer
     // Explicit teardown avoids GDI calls from DLL-loader static destruction.
     void Reset()
     {
+        rgb565.Reset();
         if (dc && previous)
             SelectObject(dc, previous);
         if (bitmap)
@@ -73,13 +76,26 @@ class PresentationBuffer
             return false;
         const int sourceWidth = native ? layout.width : 800;
         const int sourceHeight = native ? layout.height : 600;
-        if (!DrawRgb16Frame(dc, pixels, pitch, sourceWidth, sourceHeight, red, green, blue, client))
-            return false;
+        const void *image = pixels;
+        LONG imagePitch = pitch;
+        unsigned bitCount = 16;
+        // Other formats and allocation failures retain the original GDI path.
+        // Convert only authored rows; menu frames use an 800x600 subrectangle.
+        if (red == 0xf800 && green == 0x7e0 && blue == 0x1f &&
+            rgb565.Convert(pixels, pitch, sourceWidth, sourceHeight))
+        {
+            image = rgb565.Data();
+            imagePitch = sourceWidth * 4;
+            bitCount = 32;
+        }
         if (native && interior)
         {
-            enlarged = DrawRestaurantView(dc, pixels, pitch, layout, red, green, blue, client, *interior);
-            if (!enlarged &&
-                !DrawRgb16Frame(dc, pixels, pitch, sourceWidth, sourceHeight, red, green, blue, client))
+            enlarged = DrawRestaurantBase(dc, image, imagePitch, layout, red, green, blue, client, *interior, bitCount) &&
+                       DrawRestaurantView(dc, image, imagePitch, layout, red, green, blue, client, *interior, bitCount);
+        }
+        if (!enlarged && !DrawRgbFrame(dc, image, imagePitch, sourceWidth, sourceHeight, red, green, blue, client, bitCount))
+        {
+            if (bitCount != 32 || !DrawRgb16Frame(dc, pixels, pitch, sourceWidth, sourceHeight, red, green, blue, client))
                 return false;
         }
         ready = true;

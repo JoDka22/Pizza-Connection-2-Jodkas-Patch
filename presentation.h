@@ -3,6 +3,7 @@
 #include "display_layout.h"
 #include <ddraw.h>
 #include <windows.h>
+#include <cstdint>
 namespace pc2fix
 {
 inline WINDOWPLACEMENT FocusRestorePlacement(WINDOWPLACEMENT placement)
@@ -39,10 +40,15 @@ inline bool ViewPoint(RECT area, int width, int height, POINT input, POINT &outp
 } // namespace pc2fix
 void ConfigurePresentation(const pc2fix::DisplayLayout &layout, bool enabled, bool windowed);
 bool PresentationEnabled();
+void ConfigurePerformanceProbe(bool enabled);
+void ConfigureFrameLimiter(int targetFPS);
 bool InstallPresentationHooks();
 HRESULT PresentationCooperativeLevel(IDirectDraw *draw, HWND window);
 HRESULT CreatePresentationSurface(IDirectDraw *draw, IDirectDrawSurface **output);
 void ReleasePresentation();
+void BeginPresentationScene();
+uint64_t PresentationSceneGeneration();
+void CapturePresentationFrame(uint64_t generation, bool native);
 bool IsNativeWorldFrame();
 // Returns fully visible artwork bounds only for the verified, active interior.
 bool RestaurantArtwork(RECT &bounds);
