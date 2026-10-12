@@ -55,20 +55,21 @@ int main()
     check(!pc2fix::RestaurantFramePoint(restaurant, false, {dst.left, dst.top}, point),
           "changed room rejects picking until matching image is presented");
     check(pc2fix::RestaurantFramePoint(restaurant, true, {dst.left, dst.top}, point) &&
-              point.x == restaurant.source.left && point.y == restaurant.source.top,
+              abs(point.x - restaurant.source.left) <= 1 && abs(point.y - restaurant.source.top) <= 1,
           "matching frame retains inverse room picking");
     check(pc2fix::RestaurantFramePoint(restaurant, false, {1900, 300}, point) && point.x == 1900 &&
               point.y == 300 && pc2fix::RestaurantFramePoint(restaurant, false, {500, 1050}, point) &&
               point.x == 500 && point.y == 1050,
           "stale room geometry does not suppress sidebar or status input");
     check(pc2fix::RestaurantPoint(restaurant, {dst.left, dst.top}, point) &&
-              point.x == restaurant.source.left && point.y == restaurant.source.top &&
+              abs(point.x - restaurant.source.left) <= 1 && abs(point.y - restaurant.source.top) <= 1 &&
               pc2fix::RestaurantPoint(restaurant, {dst.right - 1, dst.bottom - 1}, point) &&
-              point.x < restaurant.source.right && point.y < restaurant.source.bottom,
-          "restaurant corners map inside the original artwork crop");
+              point.x <= restaurant.source.right && point.y <= restaurant.source.bottom,
+          "room anchor picking retains native coordinates within one rounding pixel");
     check(!pc2fix::RestaurantPoint(restaurant, {0, 0}, point) &&
-              !pc2fix::RestaurantPoint(restaurant, {dst.right, dst.top}, point),
-          "black margins and exclusive crop boundary reject furniture placement");
+              pc2fix::RestaurantPoint(restaurant, {dst.right, dst.top}, point) &&
+              abs(point.x - restaurant.source.right) <= 1,
+          "outside-canvas margin rejected while extended world beyond artwork accepts picking");
     check(pc2fix::RestaurantPoint(restaurant, {1681, 300}, point) && point.x == 1681 && point.y == 300 &&
               pc2fix::RestaurantPoint(restaurant, {900, 1031}, point) && point.x == 900 && point.y == 1031,
           "protruding sidebar controls and status retain their input coordinates");

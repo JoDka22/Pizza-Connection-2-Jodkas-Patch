@@ -30,6 +30,32 @@ inline bool MakeRestaurantView(const DisplayLayout &layout, RECT artwork, Restau
     view = {source, destination, area};
     return true;
 }
+inline bool RestaurantCanvasView(const RestaurantView &view, RestaurantView &canvas)
+{
+    canvas = {};
+    if (view.area.left < 0 || view.area.top < 0 || view.area.right > 4096 || view.area.bottom > 2160 ||
+        view.area.right <= view.area.left || view.area.bottom <= view.area.top ||
+        view.source.left < view.area.left || view.source.top < view.area.top ||
+        view.source.right > view.area.right || view.source.bottom > view.area.bottom ||
+        view.destination.left < view.area.left || view.destination.top < view.area.top ||
+        view.destination.right > view.area.right || view.destination.bottom > view.area.bottom)
+        return false;
+    const int width = view.source.right - view.source.left;
+    const int height = view.source.bottom - view.source.top;
+    const int w = view.destination.right - view.destination.left;
+    const int h = view.destination.bottom - view.destination.top;
+    if (width <= 0 || height <= 0 || w <= 0 || h <= 0)
+        return false;
+    // The artwork crop defines the stable zoom and room anchor, not the limit
+    // of moving world sprites. Extend that same transform across the world.
+    const LONG left = view.destination.left - MulDiv(view.source.left - view.area.left, w, width);
+    const LONG top = view.destination.top - MulDiv(view.source.top - view.area.top, h, height);
+    RECT destination{left, top,
+                     left + MulDiv(view.area.right - view.area.left, w, width),
+                     top + MulDiv(view.area.bottom - view.area.top, h, height)};
+    canvas = {view.area, destination, view.area};
+    return true;
+}
 inline bool RestaurantPoint(const RestaurantView &view, POINT input, POINT &output)
 {
     // All UI, including the protruding tabs and lower status bar, stays unchanged.
@@ -38,11 +64,13 @@ inline bool RestaurantPoint(const RestaurantView &view, POINT input, POINT &outp
         output = input;
         return true;
     }
-    if (!ViewPoint(view.destination, view.source.right - view.source.left,
-                   view.source.bottom - view.source.top, input, output))
+    RestaurantView canvas{};
+    if (!RestaurantCanvasView(view, canvas) ||
+        !ViewPoint(canvas.destination, canvas.source.right - canvas.source.left,
+                   canvas.source.bottom - canvas.source.top, input, output))
         return false;
-    output.x += view.source.left;
-    output.y += view.source.top;
+    output.x += canvas.source.left;
+    output.y += canvas.source.top;
     return true;
 }
 inline bool RestaurantFramePoint(const RestaurantView &view, bool geometryMatches, POINT input, POINT &output)

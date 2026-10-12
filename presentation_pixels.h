@@ -37,8 +37,11 @@ inline bool DrawRestaurantView(HDC dc, const void *pixels, LONG pitch, const Dis
     dib.masks[0] = red;
     dib.masks[1] = green;
     dib.masks[2] = blue;
-    auto area = RestaurantOutputRect(layout, client, view.area);
-    auto destination = RestaurantOutputRect(layout, client, view.destination);
+    RestaurantView canvas{};
+    if (!RestaurantCanvasView(view, canvas))
+        return false;
+    auto area = RestaurantOutputRect(layout, client, canvas.area);
+    auto destination = RestaurantOutputRect(layout, client, canvas.destination);
     int saved = SaveDC(dc);
     if (!saved)
         return false;
@@ -55,12 +58,11 @@ inline bool DrawRestaurantView(HDC dc, const void *pixels, LONG pitch, const Dis
     }
     // GDI source Y is relative to the bottom even for a top-down DIB crop.
     int rows = StretchDIBits(dc, destination.left, destination.top, destination.right - destination.left,
-                             destination.bottom - destination.top, view.source.left,
-                             layout.height - view.source.bottom, view.source.right - view.source.left,
-                             view.source.bottom - view.source.top, pixels,
+                             destination.bottom - destination.top, canvas.source.left,
+                             layout.height - canvas.source.bottom, canvas.source.right - canvas.source.left,
+                             canvas.source.bottom - canvas.source.top, pixels,
                              reinterpret_cast<BITMAPINFO *>(&dib), DIB_RGB_COLORS, SRCCOPY);
-    RestoreDC(dc, saved);
-    return rows != 0 && rows != GDI_ERROR;
+    return RestoreDC(dc, saved) != FALSE && rows != 0 && rows != GDI_ERROR;
 }
 inline bool DrawRgbFrame(HDC dc, const void *pixels, LONG pitch, int width, int height, DWORD red,
                          DWORD green, DWORD blue, RECT client, unsigned bitCount)

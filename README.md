@@ -42,6 +42,11 @@ Messwerte, Prüfungen und Grenzen stehen in
 [RGB565-Performance](docs/RGB565_PERFORMANCE_DE.md) und
 [CPU/GPU-Diagnose](docs/FRAME_SPIKES_DE.md).
 
+Weitere Entwicklungsfixes synchronisieren Bild und Maus beim Szenenwechsel und
+zeichnen bewegte Restaurant-Sprites ueber den Hintergrund-Ausschnitt hinaus.
+Details: [Bild/Eingabe](docs/FRAME_INPUT_SYNC_DE.md) und
+[Restaurant-Raender](docs/RESTAURANT_SPRITE_BOUNDS_DE.md).
+
 Steam ist eine weitere Zielversion. Die Freigabe hängt vom geprüften EXE-Profil
 ab, nicht vom Store: Eine byte-identische EXE kann dasselbe Profil nutzen;
 abweichende Versionen brauchen eine eigene Adressanalyse. Die Steam-Version ist
