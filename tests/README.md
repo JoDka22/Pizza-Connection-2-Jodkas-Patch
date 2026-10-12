@@ -63,6 +63,12 @@ restaurant compositor, including smaller and tall windows. Run
 Timing results are informational; CI never requires a speedup.
 See [composition benchmark and limits](../docs/RESTAURANT_PERFORMANCE_DE.md).
 
+`rgb565_benchmark.cpp` compares the complete buffered RGB32 path with the previous
+RGB16 GDI output in 12 image cases: menus, city, restaurant and RGB555 fallback,
+at three window sizes. The source covers every RGB565 color and padded rows.
+Invalid conversion arguments are also checked. CI runs `--verify-only`; running
+the executable without arguments additionally reports three-round median timings.
+
 ## Optional frontend timing probe
 
 `performance_probe_tests.cpp` adds five checks for counter-frequency conversion,

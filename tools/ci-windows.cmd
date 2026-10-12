@@ -12,6 +12,8 @@ cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\presentation_tests.cpp /Foout\pres
 out\presentation_tests.exe || exit /b 1
 cl /nologo /O2 /std:c++17 /W4 /WX /MT /EHsc tests\presentation_benchmark.cpp /Foout\presentation_benchmark.obj /Feout\presentation_benchmark.exe /link user32.lib gdi32.lib || exit /b 1
 out\presentation_benchmark.exe --verify-only || exit /b 1
+cl /nologo /O2 /std:c++17 /W4 /WX /MT /EHsc tests\rgb565_benchmark.cpp /Foout\rgb565_benchmark.obj /Feout\rgb565_benchmark.exe /link user32.lib gdi32.lib || exit /b 1
+out\rgb565_benchmark.exe --verify-only || exit /b 1
 cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\performance_probe_tests.cpp /Foout\performance_probe_tests.obj /Feout\performance_probe_tests.exe || exit /b 1
 out\performance_probe_tests.exe || exit /b 1
 cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\camera_bounds_tests.cpp /Foout\camera_bounds_tests.obj /Feout\camera_bounds_tests.exe || exit /b 1
