@@ -16,6 +16,8 @@ cl /nologo /O2 /std:c++17 /W4 /WX /MT /EHsc tests\rgb565_benchmark.cpp /Foout\rg
 out\rgb565_benchmark.exe --verify-only || exit /b 1
 cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\performance_probe_tests.cpp /Foout\performance_probe_tests.obj /Feout\performance_probe_tests.exe || exit /b 1
 out\performance_probe_tests.exe || exit /b 1
+cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\presentation_lifetime_tests.cpp /Foout\presentation_lifetime_tests.obj /Feout\presentation_lifetime_tests.exe /link user32.lib || exit /b 1
+out\presentation_lifetime_tests.exe || exit /b 1
 cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\camera_bounds_tests.cpp /Foout\camera_bounds_tests.obj /Feout\camera_bounds_tests.exe || exit /b 1
 out\camera_bounds_tests.exe || exit /b 1
 cl /nologo /std:c++17 /W4 /WX /MT /EHsc /I vendors\minhook-master\include tests\widescreen_safety_tests.cpp out\display-obj\Release\buffer.obj out\display-obj\Release\hde32.obj out\display-obj\Release\hook.obj out\display-obj\Release\trampoline.obj /Foout\widescreen_safety_tests.obj /Feout\widescreen_safety_tests.exe /link user32.lib gdi32.lib /LTCG || exit /b 1

@@ -76,6 +76,14 @@ invalid intervals, aggregate averages/peaks, incomplete frames and report reset.
 It is included in `tools/ci-windows.cmd`. The default-disabled runtime probe and
 CPU/GPU measurement limits are documented in [frame diagnosis](../docs/FRAME_SPIKES_DE.md).
 
+## DirectDraw lifetime and ownership tests
+
+`presentation_lifetime_tests.cpp` adds eleven regressions for independent game/
+presenter references, either release order, partial construction and reentrant
+teardown. It compiles the actual proxy against synthetic DirectDraw objects to
+verify owner/non-owner forwarding and teardown. Included in `tools/ci-windows.cmd`.
+See [deep code review](../docs/DEEP_REVIEW_LIFETIME_DE.md) for findings and limits.
+
 ## Camera bounds tests
 
 ```bat

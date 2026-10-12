@@ -129,6 +129,7 @@
     <ClInclude Include="presentation.h" />
     <ClInclude Include="presentation_pixels.h" />
     <ClInclude Include="presentation_buffer.h" />
+    <ClInclude Include="presentation_surfaces.h" />
     <ClInclude Include="rgb565_buffer.h" />
     <ClInclude Include="performance_probe.h" />
     <ClInclude Include="restaurant_view.h" />

@@ -4,6 +4,7 @@
 #include "main.h"
 #include "presentation_buffer.h"
 #include "performance_probe.h"
+#include "presentation_surfaces.h"
 #include <MinHook.h>
 #include <cstdio>
 namespace
@@ -11,8 +12,9 @@ namespace
 pc2fix::DisplayLayout layout{};
 bool enabled = false, framed = false;
 HWND gameWindow = nullptr;
-IDirectDrawSurface *front = nullptr;
-IDirectDrawSurface *back = nullptr;
+pc2fix::PresentationSurfaces<IDirectDrawSurface> surfaces;
+auto &front = surfaces.front;
+auto &back = surfaces.back;
 using AttachedFn = HRESULT(WINAPI *)(IDirectDrawSurface *, DDSCAPS *, IDirectDrawSurface **);
 AttachedFn attachedOriginal = nullptr;
 using FlipFn = void(__thiscall *)(void *);
@@ -354,21 +356,21 @@ HRESULT CreatePresentationSurface(IDirectDraw *draw, IDirectDrawSurface **output
     {
         auto table = *reinterpret_cast<void ***>(front);
         auto target = table[12]; // IDirectDrawSurface::GetAttachedSurface, vtable +0x30.
-        if (MH_CreateHook(target, &Attached, reinterpret_cast<void **>(&attachedOriginal)) != MH_OK ||
-            MH_EnableHook(target) != MH_OK)
+        if (MH_CreateHook(target, &Attached, reinterpret_cast<void **>(&attachedOriginal)) != MH_OK)
             result = E_FAIL;
+        else if (MH_EnableHook(target) != MH_OK)
+        {
+            MH_RemoveHook(target); // Do not retain a half-installed vtable detour.
+            attachedOriginal = nullptr;
+            result = E_FAIL;
+        }
     }
     if (FAILED(result))
     {
-        if (front)
-            front->Release();
-        if (back)
-            back->Release();
-        front = nullptr;
-        back = nullptr;
+        surfaces.Reset();
         return result;
     }
-    *output = front; // Game owns front; presenter holds back until DirectDraw teardown.
+    *output = surfaces.FrontForGame(); // Game and presenter hold independent COM references.
     Log("present: two 1920x1080 RGB565 system-memory buffers allocated");
     return DD_OK;
 }
@@ -377,9 +379,6 @@ void ReleasePresentation()
     ConfigurePerformanceProbe(false);
     restaurantPresented = false;
     outputBuffer.Reset();
-    if (back)
-        back->Release();
-    back = nullptr;
-    front = nullptr;
     gameWindow = nullptr;
+    surfaces.Reset();
 }
