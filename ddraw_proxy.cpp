@@ -68,6 +68,7 @@ class Draw final : public IDirectDraw {
     bool allowFallback;
     bool ownsPresentation;
     volatile LONG references = 1;
+    bool UsesPresentation() const { return ownsPresentation && PresentationEnabled() && dimensionsApplied; }
 public:
     Draw(IDirectDraw* object, bool initialProbe) : original(object), allowFallback(initialProbe), ownsPresentation(initialProbe) {}
     HRESULT WINAPI QueryInterface(REFIID id, void** output) override {
@@ -91,7 +92,7 @@ public:
     HRESULT WINAPI CreateClipper(DWORD f, LPDIRECTDRAWCLIPPER* p, IUnknown* u) override { return original->CreateClipper(f,p,u); }
     HRESULT WINAPI CreatePalette(DWORD f, LPPALETTEENTRY e, LPDIRECTDRAWPALETTE* p, IUnknown* u) override { return original->CreatePalette(f,e,p,u); }
     HRESULT WINAPI CreateSurface(LPDDSURFACEDESC d, LPDIRECTDRAWSURFACE* p, IUnknown* u) override {
-        auto result = PresentationEnabled() && dimensionsApplied && d && (d->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)
+        auto result = UsesPresentation() && d && (d->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)
             ? CreatePresentationSurface(original,p) : original->CreateSurface(d,p,u);
         if (SUCCEEDED(result)) firstMode = false; // Never resize existing surfaces via fallback.
         if (SUCCEEDED(result) && p && *p && d && (d->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)) {
@@ -129,14 +130,14 @@ public:
     HRESULT WINAPI Initialize(GUID* g) override { return original->Initialize(g); }
     HRESULT WINAPI RestoreDisplayMode() override { return original->RestoreDisplayMode(); }
     HRESULT WINAPI SetCooperativeLevel(HWND window, DWORD flags) override {
-        return PresentationEnabled() && dimensionsApplied ? PresentationCooperativeLevel(original,window) :
+        return UsesPresentation() ? PresentationCooperativeLevel(original,window) :
             original->SetCooperativeLevel(window,flags);
     }
     HRESULT WINAPI SetDisplayMode(DWORD w, DWORD h, DWORD bits) override {
-        auto result = PresentationEnabled() && dimensionsApplied ? DD_OK : original->SetDisplayMode(w,h,bits);
+        auto result = UsesPresentation() ? DD_OK : original->SetDisplayMode(w,h,bits);
         char message[160]{};
         sprintf_s(message,"ddraw: %s %lux%lux%lu HRESULT=%08lx",
-            PresentationEnabled() && dimensionsApplied ? "virtual render mode (desktop retained)" : "SetDisplayMode",
+            UsesPresentation() ? "virtual render mode (desktop retained)" : "SetDisplayMode",
             w,h,bits,static_cast<DWORD>(result));
         Log(message);
         // Fallback is safe only for the FIRST mode request, before any surface.
