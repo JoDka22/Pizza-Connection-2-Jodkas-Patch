@@ -3,6 +3,7 @@
 #include "presentation.h"
 #include "main.h"
 #include "presentation_buffer.h"
+#include "performance_probe.h"
 #include <MinHook.h>
 #include <cstdio>
 namespace
@@ -28,6 +29,41 @@ RECT restaurantArtwork{};
 bool restaurantPresented = false;
 pc2fix::PresentationBuffer outputBuffer;
 bool painting = false;
+bool performanceProbe = false;
+LONGLONG performanceFrequency = 0, performanceWindow = 0, previousFlip = 0;
+pc2fix::FrameStats performanceStats{};
+LONGLONG Stamp()
+{
+    LARGE_INTEGER counter{};
+    QueryPerformanceCounter(&counter);
+    return counter.QuadPart;
+}
+double Elapsed(LONGLONG start, LONGLONG end)
+{
+    return pc2fix::TickMilliseconds(start, end, performanceFrequency);
+}
+void RecordPerformance(pc2fix::FrameSample sample, LONGLONG start)
+{
+    auto end = Stamp();
+    if (previousFlip)
+        performanceStats.gap.Add(Elapsed(previousFlip, start));
+    previousFlip = start;
+    sample.total = Elapsed(start, end);
+    performanceStats.Add(sample);
+    if (Elapsed(performanceWindow, end) < 5000)
+        return;
+    auto &s = performanceStats;
+    char line[512]{};
+    sprintf_s(line,
+              "perf: frames=%u completed=%u over50ms=%u avg/max(ms) gap=%.2f/%.2f copy=%.2f/%.2f "
+              "lock=%.2f/%.2f compose=%.2f/%.2f publish=%.2f/%.2f total=%.2f/%.2f",
+              s.frames, s.completed, s.over50ms, s.gap.Average(), s.gap.peak, s.copy.Average(), s.copy.peak,
+              s.lock.Average(), s.lock.peak, s.compose.Average(), s.compose.peak,
+              s.publish.Average(), s.publish.peak, s.total.Average(), s.total.peak);
+    Log(line);
+    performanceStats = {};
+    performanceWindow = end;
+}
 RECT View(HWND window)
 {
     RECT client{};
@@ -35,14 +71,17 @@ RECT View(HWND window)
     return pc2fix::FitView(client.right, client.bottom, IsNativeWorldFrame() ? layout.width : 800,
                            IsNativeWorldFrame() ? layout.height : 600);
 }
-void Paint(HDC paintDC = nullptr)
+void Paint(HDC paintDC = nullptr, pc2fix::FrameSample *sample = nullptr)
 {
     if (painting || !front || !IsWindow(gameWindow) || IsIconic(gameWindow))
         return;
     painting = true;
     DDSURFACEDESC data{};
     data.dwSize = sizeof(data);
+    auto phaseStart = sample ? Stamp() : 0;
     auto result = front->Lock(nullptr, &data, DDLOCK_WAIT | DDLOCK_READONLY, nullptr);
+    if (sample)
+        sample->lock = Elapsed(phaseStart, Stamp());
     if (SUCCEEDED(result))
     {
         if (data.lPitch >= layout.width * 2 && data.lPitch % 4 == 0 &&
@@ -51,18 +90,28 @@ void Paint(HDC paintDC = nullptr)
             RECT client{}, artwork{};
             GetClientRect(gameWindow, &client);
             pc2fix::RestaurantView interior{};
+            phaseStart = sample ? Stamp() : 0;
             bool wantInterior =
                 RestaurantArtwork(artwork) && pc2fix::MakeRestaurantView(layout, artwork, interior);
             bool enlarged = false;
-            if (outputBuffer.Compose(data.lpSurface, data.lPitch, layout, IsNativeWorldFrame(),
-                                     data.ddpfPixelFormat.dwRBitMask, data.ddpfPixelFormat.dwGBitMask,
-                                     data.ddpfPixelFormat.dwBBitMask, client,
-                                     wantInterior ? &interior : nullptr, enlarged))
+            const bool composed = outputBuffer.Compose(data.lpSurface, data.lPitch, layout, IsNativeWorldFrame(),
+                                                       data.ddpfPixelFormat.dwRBitMask, data.ddpfPixelFormat.dwGBitMask,
+                                                       data.ddpfPixelFormat.dwBBitMask, client,
+                                                       wantInterior ? &interior : nullptr, enlarged);
+            if (sample)
+                sample->compose = Elapsed(phaseStart, Stamp());
+            if (composed)
             {
+                phaseStart = sample ? Stamp() : 0;
                 auto dc = paintDC ? paintDC : GetDC(gameWindow);
                 bool presented = dc && outputBuffer.Present(dc);
                 if (dc && !paintDC)
                     ReleaseDC(gameWindow, dc);
+                if (sample)
+                {
+                    sample->publish = Elapsed(phaseStart, Stamp());
+                    sample->completed = presented;
+                }
                 if (presented)
                 {
                     restaurantPresented = enlarged;
@@ -129,11 +178,15 @@ void __fastcall Flip(void *object, void *)
     // Defer a nested flip rather than blitting into that locked surface.
     if (painting)
         return;
+    auto performanceStart = performanceProbe ? Stamp() : 0;
+    pc2fix::FrameSample sample{};
     auto result = front->Blt(nullptr, back, nullptr, DDBLT_WAIT, nullptr);
     if (result == DDERR_SURFACELOST && SUCCEEDED(front->Restore()) && SUCCEEDED(back->Restore()))
         result = front->Blt(nullptr, back, nullptr, DDBLT_WAIT, nullptr);
+    if (performanceProbe)
+        sample.copy = Elapsed(performanceStart, Stamp());
     if (SUCCEEDED(result))
-        Paint();
+        Paint(nullptr, performanceProbe ? &sample : nullptr);
     else if (!reported)
     {
         char line[96]{};
@@ -142,6 +195,8 @@ void __fastcall Flip(void *object, void *)
         Log(line);
         reported = true;
     }
+    if (performanceProbe)
+        RecordPerformance(sample, performanceStart);
 }
 BOOL WINAPI Clip(const RECT *area)
 {
@@ -218,6 +273,17 @@ void ConfigurePresentation(const pc2fix::DisplayLayout &target, bool requested, 
 bool PresentationEnabled()
 {
     return enabled;
+}
+void ConfigurePerformanceProbe(bool requested)
+{
+    LARGE_INTEGER frequency{};
+    performanceProbe = requested && QueryPerformanceFrequency(&frequency) && frequency.QuadPart > 0;
+    performanceFrequency = performanceProbe ? frequency.QuadPart : 0;
+    performanceStats = {};
+    previousFlip = 0;
+    performanceWindow = performanceProbe ? Stamp() : 0;
+    if (performanceProbe)
+        Log("perf: optional frontend timing probe active; reports every five seconds");
 }
 bool InstallPresentationHooks()
 {
@@ -308,6 +374,7 @@ HRESULT CreatePresentationSurface(IDirectDraw *draw, IDirectDrawSurface **output
 }
 void ReleasePresentation()
 {
+    ConfigurePerformanceProbe(false);
     restaurantPresented = false;
     outputBuffer.Reset();
     if (back)
