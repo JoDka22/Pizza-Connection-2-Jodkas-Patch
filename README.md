@@ -33,6 +33,20 @@ erfolgten auf dem lokalen Windows-PC, nicht auf allen Treibern und Systemen.
 Ungeprüfte Timing-/Framerate-Hacks aus dem ursprünglichen Ansatz sind nicht aktiv.
 Es gibt keine zugesagte FPS- oder Ladezeitverbesserung und keinen Multiplayer.
 
+## Entwicklung nach v0.1.0
+
+Die Entwicklungsbranches ergänzen schnellere RGB565-Bildaufbereitung und eine
+standardmäßig ausgeschaltete Bildphasen-Diagnose (`PerformanceProbe=1`).
+Diese Änderungen sind noch nicht im oben verlinkten v0.1.0 enthalten.
+Messwerte, Prüfungen und Grenzen stehen in
+[RGB565-Performance](docs/RGB565_PERFORMANCE_DE.md) und
+[CPU/GPU-Diagnose](docs/FRAME_SPIKES_DE.md).
+
+Steam ist eine weitere Zielversion. Die Freigabe hängt vom geprüften EXE-Profil
+ab, nicht vom Store: Eine byte-identische EXE kann dasselbe Profil nutzen;
+abweichende Versionen brauchen eine eigene Adressanalyse. Die Steam-Version ist
+noch nicht getestet. Unbekannte EXEs erhalten weiterhin keine Speicherpatches.
+
 ## Installation
 
 1. Spiel beenden. Zuerst eine **separate Kopie der Installation und Sicherung der
