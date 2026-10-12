@@ -48,13 +48,20 @@ cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\presentation_tests.cpp /Foout\pres
 out\presentation_tests.exe
 ```
 
-The 33 checks cover offscreen composition, resize/failure/resource handling, restaurant geometry/picking,
+The 36 checks cover stale room input, offscreen composition, resize/failure/resource handling, restaurant geometry/picking,
 restoring minimized normal/maximized focus snapshots,
 aspect-preserving output, inverse mouse coordinates, bar/edge
 rejection and actual RGB565 GDI transfer using a 1920-wide source stride with only
 600 authored rows. First/last row and letterbox pixel checks guard against incorrect
 DIB cropping. They do not test surface loss, game timing or every UI view. See
 [local runtime observations](../docs/PRESENTATION_DE.md).
+
+The CI script also builds `presentation_benchmark.cpp` and runs `--verify-only`:
+three complete synthetic RGB image comparisons between the previous and clipped
+restaurant compositor, including smaller and tall windows. Run
+`out\presentation_benchmark.exe` without arguments for a local timing comparison.
+Timing results are informational; CI never requires a speedup.
+See [composition benchmark and limits](../docs/RESTAURANT_PERFORMANCE_DE.md).
 
 ## Camera bounds tests
 

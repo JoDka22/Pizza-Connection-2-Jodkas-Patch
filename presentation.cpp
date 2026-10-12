@@ -186,14 +186,12 @@ LRESULT __fastcall Message(void *object, void *, HWND window, UINT msg, WPARAM w
         else if (restaurantPresented)
         {
             RECT current{};
-            if (RestaurantArtwork(current) && EqualRect(&current, &restaurantArtwork))
-            {
-                POINT interior{};
-                if (pc2fix::RestaurantPoint(restaurantView, mapped, interior))
-                    mapped = interior;
-                else
-                    mapped = {-1, -1};
-            }
+            POINT interior{};
+            const bool geometryMatches = RestaurantArtwork(current) && EqualRect(&current, &restaurantArtwork);
+            if (pc2fix::RestaurantFramePoint(restaurantView, geometryMatches, mapped, interior))
+                mapped = interior;
+            else
+                mapped = {-1, -1}; // Wait until the changed room has been presented with a matching map.
         }
         if (screen)
             ClientToScreen(window, &mapped);

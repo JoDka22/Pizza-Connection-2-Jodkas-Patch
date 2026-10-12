@@ -73,15 +73,13 @@ class PresentationBuffer
             return false;
         const int sourceWidth = native ? layout.width : 800;
         const int sourceHeight = native ? layout.height : 600;
-        if (!DrawRgb16Frame(dc, pixels, pitch, sourceWidth, sourceHeight, red, green, blue, client))
-            return false;
         if (native && interior)
         {
-            enlarged = DrawRestaurantView(dc, pixels, pitch, layout, red, green, blue, client, *interior);
-            if (!enlarged &&
-                !DrawRgb16Frame(dc, pixels, pitch, sourceWidth, sourceHeight, red, green, blue, client))
-                return false;
+            enlarged = DrawRestaurantBase(dc, pixels, pitch, layout, red, green, blue, client, *interior) &&
+                       DrawRestaurantView(dc, pixels, pitch, layout, red, green, blue, client, *interior);
         }
+        if (!enlarged && !DrawRgb16Frame(dc, pixels, pitch, sourceWidth, sourceHeight, red, green, blue, client))
+            return false;
         ready = true;
         return true;
     }

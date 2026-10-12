@@ -52,6 +52,15 @@ int main()
               abs(restaurant.destination.top - (restaurant.area.bottom - restaurant.destination.bottom)) <= 1,
           "restaurant enlarged and centered in area clear of sidebar tabs");
     const auto &dst = restaurant.destination;
+    check(!pc2fix::RestaurantFramePoint(restaurant, false, {dst.left, dst.top}, point),
+          "changed room rejects picking until matching image is presented");
+    check(pc2fix::RestaurantFramePoint(restaurant, true, {dst.left, dst.top}, point) &&
+              point.x == restaurant.source.left && point.y == restaurant.source.top,
+          "matching frame retains inverse room picking");
+    check(pc2fix::RestaurantFramePoint(restaurant, false, {1900, 300}, point) && point.x == 1900 &&
+              point.y == 300 && pc2fix::RestaurantFramePoint(restaurant, false, {500, 1050}, point) &&
+              point.x == 500 && point.y == 1050,
+          "stale room geometry does not suppress sidebar or status input");
     check(pc2fix::RestaurantPoint(restaurant, {dst.left, dst.top}, point) &&
               point.x == restaurant.source.left && point.y == restaurant.source.top &&
               pc2fix::RestaurantPoint(restaurant, {dst.right - 1, dst.bottom - 1}, point) &&

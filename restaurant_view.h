@@ -45,4 +45,13 @@ inline bool RestaurantPoint(const RestaurantView &view, POINT input, POINT &outp
     output.y += view.source.top;
     return true;
 }
+inline bool RestaurantFramePoint(const RestaurantView &view, bool geometryMatches, POINT input, POINT &output)
+{
+    if (!PtInRect(&view.area, input))
+    {
+        output = input; // Sidebar/status remain responsive during a room transition.
+        return true;
+    }
+    return geometryMatches && RestaurantPoint(view, input, output);
+}
 } // namespace pc2fix

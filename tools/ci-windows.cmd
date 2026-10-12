@@ -10,6 +10,8 @@ cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\display_tests.cpp /Foout\display_t
 out\display_tests.exe || exit /b 1
 cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\presentation_tests.cpp /Foout\presentation_tests.obj /Feout\presentation_tests.exe /link user32.lib gdi32.lib || exit /b 1
 out\presentation_tests.exe || exit /b 1
+cl /nologo /O2 /std:c++17 /W4 /WX /MT /EHsc tests\presentation_benchmark.cpp /Foout\presentation_benchmark.obj /Feout\presentation_benchmark.exe /link user32.lib gdi32.lib || exit /b 1
+out\presentation_benchmark.exe --verify-only || exit /b 1
 cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\camera_bounds_tests.cpp /Foout\camera_bounds_tests.obj /Feout\camera_bounds_tests.exe || exit /b 1
 out\camera_bounds_tests.exe || exit /b 1
 cl /nologo /std:c++17 /W4 /WX /MT /EHsc /I vendors\minhook-master\include tests\widescreen_safety_tests.cpp out\display-obj\Release\buffer.obj out\display-obj\Release\hde32.obj out\display-obj\Release\hook.obj out\display-obj\Release\trampoline.obj /Foout\widescreen_safety_tests.obj /Feout\widescreen_safety_tests.exe /link user32.lib gdi32.lib /LTCG || exit /b 1
