@@ -60,6 +60,10 @@ FPS, reduced GPU power or elimination of coil whine is made.
 ## Package / Paket
 
 Exactly one uploaded asset: `Pizza _Connection 2_Jodkas_Patch_v1.0.zip`.
+GitHub normalizes spaces in asset filenames to dots: the hosted file is
+`Pizza._Connection.2_Jodkas_Patch_v1.0.zip`, with the requested name used as its
+display label. The local ZIP retains the exact requested filename. The README
+links to the normalized download URL; there is no second archive variant.
 It contains the patch DLL, INI, documentation, licenses and an internal SHA-256
 manifest. No original EXE, game assets, saves or original/optional Bink DLL.
 GitHub's automatically generated source downloads are not additional uploaded assets.

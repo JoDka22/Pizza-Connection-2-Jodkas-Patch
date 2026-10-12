@@ -16,7 +16,7 @@ Ein konfigurierbarer FPS-Limiter begrenzt unnötige Bildausgabe; keine Gameplay-
 
 **Installation:** Vorhandene Wrapper, Konfiguration und Spielstände sichern.
 `ddraw.dll` und `pc2fix.ini` aus
-[Pizza _Connection 2_Jodkas_Patch_v1.0.zip](https://github.com/JoDka22/Pizza-Connection-2-Jodkas-Patch/releases/download/v1.0/Pizza%20_Connection%202_Jodkas_Patch_v1.0.zip)
+[Pizza _Connection 2_Jodkas_Patch_v1.0.zip](https://github.com/JoDka22/Pizza-Connection-2-Jodkas-Patch/releases/download/v1.0/Pizza._Connection.2_Jodkas_Patch_v1.0.zip)
 neben `fastfood2.exe` entpacken. Die originale Bink-DLL bleibt erhalten.
 
 **Einstellungen** unter `[display]` in `pc2fix.ini`: `TargetFPS=60` (Standard),
@@ -40,7 +40,7 @@ FPS limiting reduces unnecessary frame output without replacing gameplay timers.
 
 **Install:** Back up existing wrappers, configuration and saves. Extract
 `ddraw.dll` and `pc2fix.ini` from the
-[v1.0 ZIP](https://github.com/JoDka22/Pizza-Connection-2-Jodkas-Patch/releases/download/v1.0/Pizza%20_Connection%202_Jodkas_Patch_v1.0.zip)
+[v1.0 ZIP](https://github.com/JoDka22/Pizza-Connection-2-Jodkas-Patch/releases/download/v1.0/Pizza._Connection.2_Jodkas_Patch_v1.0.zip)
 beside `fastfood2.exe`. Keep the original Bink DLL.
 
 **Configure:** `[display]` → `TargetFPS=60` (default), `120`, or `0` (uncapped).
