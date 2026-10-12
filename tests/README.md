@@ -86,9 +86,9 @@ See [deep code review](../docs/DEEP_REVIEW_LIFETIME_DE.md) for findings and limi
 
 ## Frame/input transition tests
 
-`frame_pipeline_tests.cpp` adds twelve transition regressions for independent
+`frame_pipeline_tests.cpp` adds thirteen transition regressions for independent
 back/front/published geometry, scene generations, failed publication, native and
-legacy input, equal room rectangles and client resize. It is included in the CI
+legacy input, equal room rectangles, failed copies and client resize. It is included in the CI
 script. See [frame/input synchronization](../docs/FRAME_INPUT_SYNC_DE.md).
 
 ## Camera bounds tests

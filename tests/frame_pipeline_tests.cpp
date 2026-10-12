@@ -25,6 +25,9 @@ int main()
     frames.Published(city, size, false);
     check(frames.Point(layout, size, true, {960, 540}, mapped) && mapped.x == 960 && mapped.y == 540,
           "published city image uses native input coordinates");
+    frames.CopyFailed();
+    check(!frames.Front().valid && frames.Point(layout, size, true, {960, 540}, mapped) && mapped.x == 960,
+          "failed surface copy prevents repaint while preserving last published input");
     frames.Rendered(frames.Generation(), false, layout, nullptr);
     check(frames.Point(layout, size, true, {960, 540}, mapped) && mapped.x == 960,
           "rendering alone cannot switch visible input to legacy coordinates");

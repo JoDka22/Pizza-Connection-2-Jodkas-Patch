@@ -38,6 +38,7 @@ class FramePipeline
     FrameGeometry Back() const { return back; }
     FrameGeometry Front() const { return front; }
     void Copied(const FrameGeometry &image) { front = image; }
+    void CopyFailed() { front = {}; } // Do not repaint unverified surface contents.
     void Published(const FrameGeometry &image, SIZE client, bool roomEnlarged)
     {
         published = image;

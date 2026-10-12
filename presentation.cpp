@@ -178,13 +178,17 @@ void __fastcall Flip(void *object, void *)
         framePipeline.Copied(image);
         Paint(nullptr, performanceProbe ? &sample : nullptr);
     }
-    else if (!reported)
+    else
     {
-        char line[96]{};
-        sprintf_s(line, "present: back-to-front copy failed HRESULT=%08lx; frame skipped",
-                  static_cast<DWORD>(result));
-        Log(line);
-        reported = true;
+        framePipeline.CopyFailed();
+        if (!reported)
+        {
+            char line[96]{};
+            sprintf_s(line, "present: back-to-front copy failed HRESULT=%08lx; frame skipped",
+                      static_cast<DWORD>(result));
+            Log(line);
+            reported = true;
+        }
     }
     if (performanceProbe)
         RecordPerformance(sample, performanceStart);

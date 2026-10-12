@@ -21,6 +21,8 @@ oder neuen versionsabhaengigen Adressen benoetigt.
   als Backbuffer-Metadaten erfasst.
 - Nur eine erfolgreiche Back->Front-Kopie uebernimmt diese Metadaten in den Frontpuffer.
   WM_PAINT verwendet danach dessen gespeicherten Ausschnitt, nicht die neue Szene.
+  Eine fehlgeschlagene Kopie sperrt Frontpuffer-Repaints bis zur naechsten
+  erfolgreichen Kopie; die zuvor publizierte Eingabeabbildung bleibt erhalten.
 - Erst erfolgreiche GDI-Ausgabe aktualisiert die Mausabbildung und Clientgroesse.
 - Der bestehende Szenenaufbau-Hook erhoeht eine Generation. Eingaben werden bis
   zum ersten erfolgreich ausgegebenen Bild dieser Generation abgewiesen, auch
@@ -33,10 +35,10 @@ oder neuen versionsabhaengigen Adressen benoetigt.
 
 ## Automatische Verifikation
 
-Release/Debug x86 und 124 Pruefungen bestanden. Zwoelf neue Regressionen pruefen
+Release/Debug x86 und 125 Pruefungen bestanden. Dreizehn neue Regressionen pruefen
 die getrennten Back-/Front-/Ausgabe-Stufen, unveraenderte Eingabe bei fehlender
 Ausgabe, native und 800x600-Abbildung, gleiche Raumrechtecke, Kamerageometrie,
-Groessenwechsel, verschachtelte Szenenwechsel und Abbau. Die Tests verwenden
+Groessenwechsel, verschachtelte Szenenwechsel, fehlgeschlagene Kopie und Abbau. Die Tests verwenden
 synthetische Zustandsfolgen und keine Original-Spieldateien.
 
 ## Laufzeitpruefung
