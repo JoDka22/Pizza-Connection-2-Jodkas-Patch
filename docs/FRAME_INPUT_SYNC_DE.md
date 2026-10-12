@@ -66,3 +66,6 @@ und die Steam-EXE brauchen weiterhin gesonderte Laufzeitpruefungen.
 Im Restaurant-Test waren teilweise kleine Sprite-Reste am unteren Rand des
 Artworks sichtbar. Ihre Ursache und die dynamischen Ausschnittgrenzen sind noch
 nicht behoben; dieser Fix verspricht keine vollstaendige Darstellungsfehlerfreiheit.
+Die Folgeaenderung [Restaurant-Spritegrenzen](RESTAURANT_SPRITE_BOUNDS_DE.md)
+adressiert den zusaetzlichen Ausschnitt durch den Presenter getrennt von der
+hier geprueften Bild-/Eingabe-Synchronisation.

@@ -91,6 +91,16 @@ back/front/published geometry, scene generations, failed publication, native and
 legacy input, equal room rectangles, failed copies and client resize. It is included in the CI
 script. See [frame/input synchronization](../docs/FRAME_INPUT_SYNC_DE.md).
 
+## Restaurant sprite bounds tests
+
+`restaurant_background_tests.cpp` verifies the exact non-overlapping difference
+between the clipped dirty region and room bitmap, including empty/off-buffer
+rectangles and preservation of stationary and subsequently drawn actors.
+
+`restaurant_sprite_tests.cpp` adds 21 synthetic GDI/geometry checks for foreground
+pixels beyond the old artwork crop, stable room anchoring, inverse picking and
+UI clipping at three output sizes. See [restaurant sprite bounds](../docs/RESTAURANT_SPRITE_BOUNDS_DE.md).
+
 ## Camera bounds tests
 
 ```bat

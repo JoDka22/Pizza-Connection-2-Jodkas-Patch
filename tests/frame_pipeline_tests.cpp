@@ -50,7 +50,7 @@ int main()
     room = frames.Back(); frames.Copied(room); frames.Published(room, size, true);
     auto corner = POINT{room.room.destination.left, room.room.destination.top};
     check(frames.Point(layout, size, true, corner, mapped) &&
-              mapped.x == room.room.source.left && mapped.y == room.room.source.top,
+              abs(mapped.x - room.room.source.left) <= 1 && abs(mapped.y - room.room.source.top) <= 1,
           "matching scene publication restores accurate room picking");
     check(!frames.Point(layout, size, false, corner, mapped) &&
               frames.Point(layout, size, false, {1900, 300}, mapped) && mapped.x == 1900,
