@@ -4,7 +4,7 @@ Dieser Bericht beschreibt die erste Bestandsaufnahme. Die nachfolgenden Bugfixes
 
 ## Nachgewiesener Ausgangspunkt
 
-Fork: https://github.com/JoDka22/pc2fix-self, Ausgangscommit `f1ad448`, Hauptbranch `master`.
+Fork: https://github.com/JoDka22/Pizza-Connection-2-Jodkas-Patch, Ausgangscommit `f1ad448`, Hauptbranch `master`.
 Arbeitskopie: lokaler Checkout des Forks.
 Analysierte Installation: separate Kopie der deutschen GOG-Version.
 Keine Originaldatei und kein Spielstand wurde verändert. Lokale Testkopien der Bink-DLL liegen ausschließlich im ignorierten `out`-Ordner. Sie gehören niemals in Git oder ein Release.
@@ -24,8 +24,8 @@ GOG-Metadaten: GameId 1175067557, deutsche Sprache, BuildId 51199057373375775. V
 - `main.cpp`: MinHook-Detours für Fensterprozedur, CallbackTimer, WorldClock und ProcessGameTick, absolute Adressen ohne Versionsprüfung, Intro-NOPs, Fensterkonstanten, Frame-Timer und Wartezeitänderung. Kein DirectDraw-CreateSurface/Blt/Flip-Detour vorhanden. Der README-Widescreen-Punkt war ein TODO.
 - `main.h`: nur Main/Quit-Deklarationen. Quit war nicht in den DLL-Abbau integriert.
 - `types.h`: unvollständige RE-Strukturen mit vielen Paddingfeldern, ohne sizeof-/offsetof-Prüfungen. DirectDraw-Interfaces werden als Mischung aus IDirectDraw und Surface7 bezeichnet; die Analyse zeigt alte Deskriptorgrößen (0x6c). Die tatsächlichen Interface-Versionen müssen vor COM-Hooks belegt werden. Diese Strukturen sind im neuen Bootstrap nicht im Einsatz.
-- `pc2fix.sln`: VS2022, x86 Debug/Release auf Win32-Projektkonfigurationen abgebildet.
-- `pc2fix.vcxproj`: v143, Windows SDK 10.0, MultiByte, MinHook-Quellen direkt eingebunden, vormals Ausgabe direkt in fremden Steam-Installationspfad. Keine Tests/CI. Jetzt Ausgabe in out/Debug bzw. out/Release, C++17, statische CRT und explizite Exportdefinition.
+- `Pizza Connection 2 Jodkas Patch.sln`: VS2022, x86 Debug/Release auf Win32-Projektkonfigurationen abgebildet.
+- `Pizza Connection 2 Jodkas Patch Bink.vcxproj`: v143, Windows SDK 10.0, MultiByte, MinHook-Quellen direkt eingebunden, vormals Ausgabe direkt in fremden Steam-Installationspfad. Keine Tests/CI. Jetzt Ausgabe in out/Debug bzw. out/Release, C++17, statische CRT und explizite Exportdefinition.
 - `vendors/minhook-master`: mitgelieferte MinHook-Codebasis 1.3.4 einschließlich x86/x64-Decoder, MIT/BSD-Lizenzdateien erhalten. Die Anwendung bleibt ausdrücklich x86.
 - `idapro/*.idc`: IDA-Rekonstruktionsskripte für Typen, Funktionen und Daten; keine ausführbare Original-EXE. Funktionsnamen sind RE-Hinweise, kein Beweis für Laufzeitsemantik.
 - `LICENSE`, Bild, README, Projektfilter und .gitignore geprüft; Lizenzhinweise erhalten. Keine weiteren AGENTS.md-Anweisungen im geklonten Repository gefunden.

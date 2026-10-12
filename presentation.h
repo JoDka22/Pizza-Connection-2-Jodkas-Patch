@@ -41,6 +41,7 @@ inline bool ViewPoint(RECT area, int width, int height, POINT input, POINT &outp
 void ConfigurePresentation(const pc2fix::DisplayLayout &layout, bool enabled, bool windowed);
 bool PresentationEnabled();
 void ConfigurePerformanceProbe(bool enabled);
+void ConfigureFrameLimiter(int targetFPS);
 bool InstallPresentationHooks();
 HRESULT PresentationCooperativeLevel(IDirectDraw *draw, HWND window);
 HRESULT CreatePresentationSurface(IDirectDraw *draw, IDirectDrawSurface **output);

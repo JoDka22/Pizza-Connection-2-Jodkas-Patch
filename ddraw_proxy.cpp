@@ -21,6 +21,7 @@ void RestoreDimensions()
 {
     StopWidescreen();
     ConfigurePresentation({}, false, false);
+    ConfigureFrameLimiter(0);
     *reinterpret_cast<DWORD*>(0x574734) = 800;
     *reinterpret_cast<DWORD*>(0x574738) = 600;
     *reinterpret_cast<RECT*>(0x573d38) = {0,0,800,600};
@@ -58,6 +59,7 @@ BOOL CALLBACK Initialise(PINIT_ONCE, PVOID, PVOID*)
     // This backend is deliberately restricted to the requested/tested Full-HD mode.
     ConfigurePresentation(layout, presentation && widescreen && probe && width == 1920 && height == 1080, windowed);
     ConfigurePerformanceProbe(PresentationEnabled() && GetPrivateProfileIntW(L"display", L"PerformanceProbe", 0, path) == 1);
+    ConfigureFrameLimiter(static_cast<int>(GetPrivateProfileIntW(L"display", L"TargetFPS", 60, path)));
     Log(probe ? (widescreen ? "ddraw: opt-in native widescreen layout" :
         "ddraw: opt-in render probe; camera/UI unchanged") : "ddraw: diagnostics only; original resolution retained");
     return TRUE;

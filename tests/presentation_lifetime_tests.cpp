@@ -54,6 +54,7 @@ void StopWidescreen() {}
 void ConfigurePresentation(const pc2fix::DisplayLayout &, bool, bool) {}
 bool PresentationEnabled() { return testEnabled; }
 void ConfigurePerformanceProbe(bool) {}
+void ConfigureFrameLimiter(int) {}
 HRESULT CreatePresentationSurface(IDirectDraw *, IDirectDrawSurface **p)
 { ++presentationCalls; if (p) *p = nullptr; return E_FAIL; }
 HRESULT PresentationCooperativeLevel(IDirectDraw *, HWND) { ++presentationCalls; return DD_OK; }

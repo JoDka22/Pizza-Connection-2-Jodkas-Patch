@@ -6,6 +6,7 @@
 #include "performance_probe.h"
 #include "presentation_surfaces.h"
 #include "frame_pipeline.h"
+#include "frame_limiter.h"
 #include <MinHook.h>
 #include <cstdio>
 namespace
@@ -29,6 +30,7 @@ WINDOWPLACEMENT focusPlacement{sizeof(WINDOWPLACEMENT)};
 bool haveFocusPlacement = false;
 pc2fix::FramePipeline framePipeline;
 pc2fix::PresentationBuffer outputBuffer;
+pc2fix::FrameLimiter frameLimiter;
 bool painting = false;
 bool performanceProbe = false;
 LONGLONG performanceFrequency = 0, performanceWindow = 0, previousFlip = 0;
@@ -165,6 +167,10 @@ void __fastcall Flip(void *object, void *)
     // Defer a nested flip rather than blitting into that locked surface.
     if (painting)
         return;
+    if (gameWindow && !IsIconic(gameWindow))
+        frameLimiter.Wait();
+    else
+        frameLimiter.Reset();
     auto performanceStart = performanceProbe ? Stamp() : 0;
     pc2fix::FrameSample sample{};
     const auto image = framePipeline.Back();
@@ -290,6 +296,17 @@ void ConfigurePerformanceProbe(bool requested)
     if (performanceProbe)
         Log("perf: optional frontend timing probe active; reports every five seconds");
 }
+void ConfigureFrameLimiter(int targetFPS)
+{
+    if (!frameLimiter.Configure(enabled ? targetFPS : 0))
+        Log("present: invalid TargetFPS; limiter disabled (valid: 0 or 1..1000)");
+    else if (enabled)
+    {
+        char line[80]{};
+        sprintf_s(line, "present: TargetFPS=%d (output ceiling; 0 means uncapped)", targetFPS);
+        Log(line);
+    }
+}
 bool InstallPresentationHooks()
 {
     if (!enabled)
@@ -379,6 +396,7 @@ HRESULT CreatePresentationSurface(IDirectDraw *draw, IDirectDrawSurface **output
 }
 void ReleasePresentation()
 {
+    frameLimiter.Configure(0);
     ConfigurePerformanceProbe(false);
     framePipeline.Reset();
     outputBuffer.Reset();

@@ -26,4 +26,4 @@ jobs:
         run: tools\ci-windows.cmd
       - name: Verify release package contents and hashes
         shell: cmd
-        run: python tools\package_release.py v0.1.0
+        run: python tools\package_release.py v1.0

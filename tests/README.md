@@ -103,6 +103,10 @@ UI clipping at three output sizes. See [restaurant sprite bounds](../docs/RESTAU
 
 ## Camera bounds tests
 
+`frame_limiter_tests.cpp` checks 60/120/uncapped deadlines, invalid settings,
+activation reset, late frames without catch-up bursts and actual Windows timer
+waits across two 60 FPS intervals. It is included in the Windows CI script.
+
 ```bat
 cl /nologo /std:c++17 /W4 /WX /MT /EHsc tests\camera_bounds_tests.cpp /Foout\camera_bounds_tests.obj /Feout\camera_bounds_tests.exe
 out\camera_bounds_tests.exe

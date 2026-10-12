@@ -14,7 +14,8 @@
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{c7e38ec7-e395-44af-87d9-621d8b323ac4}</ProjectGuid>
-    <RootNamespace>pc2fix</RootNamespace>
+    <RootNamespace>PizzaConnection2JodkasPatchBink</RootNamespace>
+    <ProjectName>Pizza Connection 2 Jodkas Patch Bink</ProjectName>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

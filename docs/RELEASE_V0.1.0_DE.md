@@ -1,6 +1,6 @@
 # v0.1.0 – erster oeffentlicher Full-HD-Vorabrelease
 
-Fork von mallgrab/pc2fix, weiterentwickelt in JoDka22/pc2fix-self.
+Fork von mallgrab/pc2fix, weiterentwickelt in JoDka22/Pizza-Connection-2-Jodkas-Patch.
 Unterstuetzt wird die analysierte deutsche GOG-EXE 1.006 mit 1920x1080.
 Dies ist ein unabhaengiger Patch, kein offizielles Spielupdate.
 

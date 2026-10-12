@@ -6,6 +6,8 @@ Width=1920
 Height=1080
 Presentation=1
 Windowed=0
+; Output FPS ceiling (not a speed boost): 60, 120, or 0 for uncapped.
+TargetFPS=60
 ; Developer surface-only probe; leave disabled for normal use.
 RenderProbe=0
 ; Optional frontend timing summaries in pc2fix.log. No gameplay timer changes.
